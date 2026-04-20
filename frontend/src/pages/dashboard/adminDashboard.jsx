@@ -48,6 +48,7 @@ import {
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 
 import SharedSidebar from "../../components/SharedSidebar";
+import { authFetch } from "../../utils/authFetch";
 
 
 // ─────────────────────────────────────────────
@@ -461,20 +462,11 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("access_token");
         const [usersResponse, alertsResponse, productsResponse, ordersStatsResponse] = await Promise.all([
-          fetch("http://localhost:8000/api/admin/users/", {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          }),
-          fetch("http://localhost:8000/api/alerts/", {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          }),
-          fetch("http://localhost:8000/api/stock/products/", {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          }),
-          fetch("http://localhost:8000/api/orders/orders/statistics/", {
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          }),
+          authFetch("/admin/users/"),
+          authFetch("/alerts/"),
+          authFetch("/stock/products/"),
+          authFetch("/orders/orders/statistics/"),
         ]);
 
         const usersData = usersResponse.ok ? await usersResponse.json() : {};
@@ -532,10 +524,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     const fetchActivities = async () => {
       try {
-        const token = localStorage.getItem("access_token");
-        const res = await fetch("http://localhost:8000/api/activity/recent/?limit=6", {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
+        const res = await authFetch("/activity/recent/?limit=6");
         if (res.ok) {
           const data = await res.json();
           const items = Array.isArray(data) ? data : data?.results || [];
@@ -556,10 +545,7 @@ const AdminDashboard = () => {
   // Polling notifications
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/notifications/", {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
+      const res = await authFetch("/notifications/");
       if (res.ok) {
         const json = await res.json();
         const items = Array.isArray(json) ? json : json?.results || [];
@@ -592,11 +578,7 @@ const AdminDashboard = () => {
   // Fetch online users
   const fetchOnlineUsers = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/users/online/", {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        credentials: "include",
-      });
+      const res = await authFetch("/auth/users/online/", { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setOnlineUsers(data);
@@ -689,11 +671,7 @@ const AdminDashboard = () => {
   };
   const handleMarkAllNotificationsRead = async () => {
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await fetch("http://localhost:8000/api/notifications/mark_all_as_read/", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
+      const res = await authFetch("/notifications/mark_all_as_read/", { method: "POST" });
       if (res.ok) await fetchNotifications();
     } catch (err) {
       console.log("Erreur marquage notifications:", err);

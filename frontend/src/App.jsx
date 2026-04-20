@@ -1,8 +1,10 @@
-﻿import React, { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Container, Box } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivityProvider } from './context/ActivityContext';
+import { LanguageProvider } from './context/LanguageContext';
+import './i18n';
 import PrivateRoute from './components/PrivateRoute';
 import VerificationPending from './pages/auth/VerificationPending';
 import LoginOtpVerification from './pages/auth/LoginOtpVerification';
@@ -40,8 +42,17 @@ import Aurora from './components/Aurora/Aurora';
 // IMPORTANT: Utilisez AdminPanel (qui vient de adminpaneau.jsx)
 import AdminPanel from './pages/dashboard/adminpaneau';
 import AdminDashboard from './pages/dashboard/adminDashboard';
+import StockManagerDashboard from './pages/dashboard/StockManagerDashboard';
+import ApproManagerDashboard from './pages/dashboard/ApproManagerDashboard';
 import ClientsRequests from './pages/employes_requests';
 import EmployeesNew from './pages/EmployeesNew';
+
+// Pages pour le responsable approvisionnement
+import ApproFournisseurs from './pages/appro/ApproFournisseurs';
+import FournisseurTable from "./pages/appro/FournisseurTable";
+import ApproOrders from './pages/appro/ApproOrders';
+import ApproAlertes from './pages/appro/ApproAlertes';
+
 
 const theme = createTheme({
   palette: {
@@ -119,16 +130,19 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <ActivityProvider>
-          <DebugApp />
-          <Router>
-            <InnerRoutes />
-          </Router>
-        </ActivityProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <ActivityProvider>
+            <DebugApp />
+            <Router>
+              <InnerRoutes />
+            </Router>
+          </ActivityProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
+
 };
 
 const RoleBasedRedirect = () => {
@@ -147,7 +161,10 @@ const RoleBasedRedirect = () => {
   }
 
   const isAdmin = user.is_superuser || user.is_staff;
-  return <Navigate to={isAdmin ? "/admin_dashboard" : "/dashboard"} replace />;
+  if (isAdmin) return <Navigate to="/admin_dashboard" replace />;
+  if (user.role === 'responsable_stock') return <Navigate to="/stock-dashboard" replace />;
+  if (user.role === 'responsable_appro') return <Navigate to="/appro-dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
 };
 
 const RequireAdmin = ({ children }) => {
@@ -170,7 +187,41 @@ const RequireUser = ({ children }) => {
     return <Navigate to="/admin_dashboard" replace />;
   }
 
+  // Responsable stock has their own dashboard
+  if (user?.role === 'responsable_stock' && window.location.pathname === '/dashboard') {
+    return <Navigate to="/stock-dashboard" replace />;
+  }
+  if (user?.role === 'responsable_appro' && window.location.pathname === '/dashboard') {
+    return <Navigate to="/appro-dashboard" replace />;
+  }
+
   return children;
+};
+
+/** Accès au tableau de bord stock : uniquement le rôle responsable_stock */
+const RequireStockManager = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role === 'responsable_stock') {
+    return children;
+  }
+  const isAdmin = user?.is_superuser || user?.is_staff;
+  if (isAdmin) {
+    return <Navigate to="/admin_dashboard" replace />;
+  }
+  return <Navigate to="/dashboard" replace />;
+};
+
+/** Accès au tableau de bord appro : uniquement le rôle responsable_appro */
+const RequireApproManager = ({ children }) => {
+    const { user } = useAuth();
+    if (user?.role === 'responsable_appro') {
+        return children;
+    }
+    const isAdmin = user?.is_superuser || user?.is_staff;
+    if (isAdmin) {
+        return <Navigate to="/admin_dashboard" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
 };
 
 const InnerRoutes = () => {
@@ -238,6 +289,22 @@ const InnerRoutes = () => {
               <Dashboard />
             </RequireUser>
           </PrivateRoute>
+        } />
+        {/* Dashboard Responsable Stock */}
+        <Route path="/stock-dashboard" element={
+          <PrivateRoute>
+            <RequireStockManager>
+              <StockManagerDashboard />
+            </RequireStockManager>
+          </PrivateRoute>
+        } />
+        {/* Dashboard Responsable Approvisionnement */}
+        <Route path="/appro-dashboard" element={
+            <PrivateRoute>
+                <RequireApproManager>
+                    <ApproManagerDashboard />
+                </RequireApproManager>
+            </PrivateRoute>
         } />
         {/* Routes admin */}
         <Route path="/admin_panel" element={
@@ -382,7 +449,7 @@ const InnerRoutes = () => {
             <ProduitFini />
           </PrivateRoute>
         } />
-        {/* Route pour créer une nouvelle alerte */}
+        {/* Route pour créer une Nouvelle alerte */}
         <Route path="/new-alert" element={
           <PrivateRoute>
             <NewAlert />
@@ -396,14 +463,14 @@ const InnerRoutes = () => {
           </PrivateRoute>
         } />
 
-        {/* Routes clients */}
-        <Route path="/employes_requests" element={
-          <PrivateRoute>
-            <RequireAdmin>
-              <ClientsRequests />
-            </RequireAdmin>
-          </PrivateRoute>
-        } />
+// Ajoutez cette route avec les autres routes (vers ligne 250) :
+<Route path="/employes_requests" element={
+  <PrivateRoute>
+    <RequireAdmin>
+      <ClientsRequests />
+    </RequireAdmin>
+  </PrivateRoute>
+} />
 
         <Route path="/employees/new" element={
           <PrivateRoute>
@@ -450,6 +517,39 @@ const InnerRoutes = () => {
             <History />
           </PrivateRoute>
         } />
+        {/* Routes pour Responsable Approvisionnement */}
+<Route path="/appro/fournisseurs" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <ApproFournisseurs />
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+<Route path="/appro/fournisseurs/:familyKey" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <FournisseurTable />
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+
+
+<Route path="/appro/commandes" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <ApproOrders />
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+
+<Route path="/appro/alertes" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <ApproAlertes />
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+
 
         {/* Route de fallback */}
         <Route path="*" element={<RoleBasedRedirect />} />

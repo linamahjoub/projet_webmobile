@@ -14,6 +14,7 @@ class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('super_admin', 'Super Administrateur'),           # Nedia - accès à tout
         ('responsable_stock', 'Responsable Stock'),        # Gère stock, catégories, entrepôts, fournisseurs
+        ('responsable_appro', 'Responsable Approvisionnement'), # Gère les fournisseurs et les commandes d'achat
         ('responsable_production', 'Responsable Production'), # Gère production uniquement
         ('responsable_facturation', 'Responsable Facturation'), # Gère facturation
         ('responsable_commandes', 'Responsable Commandes'),     # Gère commandes
@@ -215,6 +216,7 @@ class EmailOTPChallenge(models.Model):
     )
     challenge_id = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True, editable=False)
     otp_code = models.CharField(max_length=6)
+    channel = models.CharField(max_length=20, default='email', choices=[('email', 'Email'), ('telegram', 'Telegram')])
     purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
     expires_at = models.DateTimeField()
     attempts = models.PositiveSmallIntegerField(default=0)

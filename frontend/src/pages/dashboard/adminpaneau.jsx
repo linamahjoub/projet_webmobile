@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   Container,
@@ -59,6 +59,7 @@ import {
   People as PeopleIcon,
 } from '@mui/icons-material';
 import SharedSidebar from '../../components/SharedSidebar';
+import { authFetch } from '../../utils/authFetch';
 
 // Options de rôles disponibles (doivent correspondre au backend)
 const allRoleOptions = [
@@ -290,7 +291,7 @@ const AdminPaneau = () => {
   // Gérer l'ajout d'un nouvel utilisateur
   const handleAddUser = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('access_token'); // FIX: Ajout de la récupération du token
       
       const userData = {
         email: newUser.email,
@@ -356,19 +357,13 @@ const AdminPaneau = () => {
   // Gérer la promotion/dépromotion d'admin
   const handleToggleAdmin = async (userId, isCurrentlyAdmin) => {
     try {
-      const token = localStorage.getItem('access_token');
-      
       const updateData = {
         is_staff: !isCurrentlyAdmin,
         is_superuser: !isCurrentlyAdmin,
       };
       
-      const response = await fetch(`http://localhost:8000/api/admin/users/${userId}/`, {
+      const response = await authFetch(`/admin/users/${userId}/`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(updateData),
       });
       
@@ -398,13 +393,8 @@ const AdminPaneau = () => {
     if (!selectedUser) return;
 
     try {
-      const token = localStorage.getItem('access_token');
-
-      const response = await fetch(`http://localhost:8000/api/admin/users/${selectedUser.id}/`, {
+      const response = await authFetch(`/admin/users/${selectedUser.id}/`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-        },
       });
 
       if (response.ok) {
@@ -433,14 +423,8 @@ const AdminPaneau = () => {
   // Gérer l'édition d'utilisateur
   const handleEditUser = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-
-      const response = await fetch(`http://localhost:8000/api/admin/users/${editUser.id}/`, {
+      const response = await authFetch(`/admin/users/${editUser.id}/`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           email: editUser.email,
           username: editUser.username,
@@ -489,15 +473,10 @@ const AdminPaneau = () => {
   // Gérer l'activation/désactivation d'utilisateur (avec appel API)
   const handleToggleActive = async (userItem) => {
     try {
-      const token = localStorage.getItem('access_token');
       const newActiveState = !userItem.is_active;
       
-      const response = await fetch(`http://localhost:8000/api/admin/users/${userItem.id}/`, {
+      const response = await authFetch(`/admin/users/${userItem.id}/`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           is_active: newActiveState
         }),
@@ -645,130 +624,88 @@ const AdminPaneau = () => {
           },
         }}
       >
-        {/* Header */}
-        <Box
+      {/* Header */}
+<Box
+  sx={{
+    p: 1.2,
+    borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 2,
+  }}
+>
+  {/* Menu mobile icon */}
+  {isMobile && (
+    <IconButton
+      onClick={handleDrawerToggle}
+      sx={{
+        color: 'white',
+        mr: 1,
+        '&:hover': {
+          bgcolor: 'rgba(59, 130, 246, 0.1)',
+        },
+      }}
+    >
+      <MenuIcon />
+    </IconButton>
+  )}
+
+  {/* Espace vide pour pousser l'avatar à droite */}
+  <Box sx={{ flex: 1 }} />
+
+  {/* Boutons d'action et profil - tout à droite */}
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+    <IconButton
+      onClick={fetchAdminData}
+      sx={{
+        color: '#64748b',
+        '&:hover': {
+          bgcolor: 'rgba(59, 130, 246, 0.1)',
+          color: '#3b82f6',
+        },
+      }}
+    >
+      <RefreshIcon />
+    </IconButton>
+
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+        <Typography
+          variant="body2"
           sx={{
-            p: 1.2,
-            borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 2,
+            color: 'white',
+            fontWeight: 600,
+            fontSize: '0.9rem',
           }}
         >
-          {/* Menu mobile icon */}
-          {isMobile && (
-            <IconButton
-              onClick={handleDrawerToggle}
-              sx={{
-                color: 'white',
-                mr: 1,
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                },
-              }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-
-          {/* Barre de recherche */}
-          <Box
-            sx={{
-              flex: 1,
-              maxWidth: 500,
-              position: 'relative',
-            }}
-          >
-            <SearchIcon
-              sx={{
-                position: 'absolute',
-                left: 16,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#64748b',
-                fontSize: 20,
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Rechercher un utilisateur..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px 16px 12px 48px',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                borderRadius: '12px',
-                color: '#94a3b8',
-                fontSize: '0.9rem',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#3b82f6';
-                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
-                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-              }}
-            />
-          </Box>
-
-          {/* Boutons d'action et profil */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <IconButton
-              onClick={fetchAdminData}
-              sx={{
-                color: '#64748b',
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                  color: '#3b82f6',
-                },
-              }}
-            >
-              <RefreshIcon />
-            </IconButton>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'white',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  {user?.first_name || user?.username}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: '#64748b',
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  Administrateur
-                </Typography>
-              </Box>
-              <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  bgcolor: '#ef4444',
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                }}
-              >
-                {user?.first_name?.charAt(0) || user?.username?.charAt(0) || 'A'}
-              </Avatar>
-            </Box>
-          </Box>
-        </Box>
+          {user?.first_name || user?.username}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#64748b',
+            fontSize: '0.75rem',
+          }}
+        >
+          Administrateur
+        </Typography>
+      </Box>
+      <Avatar
+        sx={{
+          width: 40,
+          height: 40,
+          bgcolor: '#ef4444',
+          fontWeight: 600,
+          fontSize: '1rem',
+        }}
+      >
+        {user?.first_name?.charAt(0) || user?.username?.charAt(0) || 'A'}
+      </Avatar>
+    </Box>
+  </Box>
+</Box>
 
         {/* Contenu du dashboard */}
         <Box sx={{ p: 2, pb: 6 }}>
@@ -921,10 +858,7 @@ const AdminPaneau = () => {
                 </Card>
               </Grid>
 
-            
-
-
-  <Grid item xs={12} sm={6} md={2.4}>
+              <Grid item xs={12} sm={6} md={2.4}>
                 <Card
                   onClick={() => handleStatClick('active')}
                   sx={{
@@ -1133,7 +1067,50 @@ const AdminPaneau = () => {
                   </Typography>
                 )}
               </Box>
-              
+                 {/* Barre de recherche */}
+          <Box
+            sx={{
+              flex: 1,
+              maxWidth: 500,
+              position: 'relative',
+            }}
+          >
+            <SearchIcon
+              sx={{
+                position: 'absolute',
+                left: 16,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#64748b',
+                fontSize: 20,
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Rechercher un utilisateur..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px 16px 12px 48px',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '12px',
+                color: '#94a3b8',
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'all 0.2s ease',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#3b82f6';
+                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+              }}
+            />
+          </Box>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
                   variant="outlined"

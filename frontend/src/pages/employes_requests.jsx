@@ -37,8 +37,10 @@ import {
   Check as CheckIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../components/SharedSidebar";
+import { useTranslation } from "react-i18next";
 
 const ClientsRequests = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -86,7 +88,7 @@ const ClientsRequests = () => {
           // L'API peut renvoyer un tableau ou un objet avec results
           const allUsers = Array.isArray(data) ? data : (data.results || []);
           
-          console.log("Données reçues:", allUsers);
+          console.log(t('dataReceived'), allUsers);
 
           // Catégoriser les utilisateurs par statut d'activation
           // Exclure TOUS les admins (superuser ET staff)
@@ -108,15 +110,15 @@ const ClientsRequests = () => {
           });
 
           if (pending.length === 0 && approved.length === 0) {
-            console.log("Aucune demande client trouvée");
+            console.log(t('noClientRequestsFound'));
           }
         } else {
-          console.error("Erreur lors de la récupération des données:", response.status);
-          setErrorMessage("Impossible de charger les demandes");
+          console.error(t('errorFetchingData'), response.status);
+          setErrorMessage(t('couldNotLoadRequests'));
         }
       } catch (err) {
         console.error("Erreur:", err);
-        setErrorMessage("Erreur lors du chargement des demandes");
+        setErrorMessage(t('errorLoadingRequests'));
       } finally {
         setLoading(false);
       }
@@ -166,7 +168,7 @@ const ClientsRequests = () => {
         
         setSuccessMessage(
           result.message || 
-          `Demande ${confirmAction === "approve" ? "approuvée" : "rejetée"} avec succès`
+          t('requestActionSuccess', { action: confirmAction === "approve" ? t('approved') : t('rejected') })
         );
 
         // Mise à jour local de l'état
@@ -200,11 +202,11 @@ const ClientsRequests = () => {
         }
       } else {
         const errorData = await response.json();
-        setErrorMessage(errorData.error || `Erreur lors de l'${confirmAction === "approve" ? "approbation" : "rejet"}`);
+        setErrorMessage(errorData.error || t('errorDuringAction', { action: confirmAction === "approve" ? t('approval') : t('rejection') }));
       }
     } catch (err) {
       console.error("Erreur:", err);
-      setErrorMessage("Erreur lors du traitement");
+      setErrorMessage(t('errorProcessing'));
     } finally {
       setConfirmDialogOpen(false);
       setSelectedRequest(null);
@@ -230,7 +232,7 @@ const ClientsRequests = () => {
         }}
       >
         <Typography variant="h4" sx={{ color: "white" }}>
-          Chargement...
+          {t('loading')}
         </Typography>
       </Box>
     );
@@ -363,7 +365,7 @@ const ClientsRequests = () => {
             />
             <input
               type="text"
-              placeholder="Rechercher une demande..."
+              placeholder={t('searchRequest')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -426,7 +428,7 @@ const ClientsRequests = () => {
                     fontSize: "0.75rem",
                   }}
                 >
-                  Administrateur
+                  {t('administrator')}
                 </Typography>
               </Box>
               <Avatar
@@ -467,7 +469,7 @@ const ClientsRequests = () => {
                   mb: 0.5,
                 }}
               >
-                Demandes des employés 
+                {t('employeeRequests')}
               </Typography>
               <Typography
                 variant="body2"
@@ -476,7 +478,7 @@ const ClientsRequests = () => {
                   fontSize: "0.95rem",
                 }}
               >
-                Validation des demandes de création de compte
+                {t('accountCreationValidation')}
               </Typography>
             </Box>
           </Box>
@@ -491,7 +493,7 @@ const ClientsRequests = () => {
             }}
           >
             <Chip
-              label={`En attente: ${requestsData.stats.pendingCount}`}
+              label={`${t('pending')}: ${requestsData.stats.pendingCount}`}
               onClick={() => setFilterStatus("pending")}
               sx={{
                 bgcolor:
@@ -509,7 +511,7 @@ const ClientsRequests = () => {
               }}
             />
             <Chip
-              label={`Approuvés: ${requestsData.stats.approvedCount}`}
+              label={`${t('approved')}: ${requestsData.stats.approvedCount}`}
               onClick={() => setFilterStatus("approved")}
               sx={{
                 bgcolor:
@@ -527,7 +529,7 @@ const ClientsRequests = () => {
               }}
             />
             <Chip
-              label={`Rejetés: ${requestsData.stats.rejectedCount}`}
+              label={`${t('rejected')}: ${requestsData.stats.rejectedCount}`}
               onClick={() => setFilterStatus("rejected")}
               sx={{
                 bgcolor:
@@ -572,7 +574,7 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        Client
+                        {t('client')}
                       </TableCell>
                       <TableCell
                         sx={{
@@ -581,7 +583,7 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        Email
+                        {t('email')}
                       </TableCell>
                       <TableCell
                         sx={{
@@ -590,7 +592,7 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        Statut
+                        {t('status')}
                       </TableCell>
                       <TableCell
                         sx={{
@@ -599,7 +601,7 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        Date d'inscription
+                        {t('registrationDate')}
                       </TableCell>
                       <TableCell
                         align="right"
@@ -609,7 +611,7 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        Actions
+                        {t('actions')}
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -672,7 +674,7 @@ const ClientsRequests = () => {
                               )
                             }
                             label={
-                              request.is_active ? "Approuvé" : "En attente"
+                              request.is_active ? t('approved') : t('pending')
                             }
                             color={
                               request.is_active ? "success" : "warning"
@@ -712,7 +714,7 @@ const ClientsRequests = () => {
                                   },
                                 }}
                               >
-                                Approuver
+                                {t('approve')}
                               </Button>
                               <Button
                                 size="small"
@@ -729,13 +731,13 @@ const ClientsRequests = () => {
                                   },
                                 }}
                               >
-                                Rejeter
+                                {t('reject')}
                               </Button>
                             </Box>
                           )}
                           {request.is_active && (
                             <Chip
-                              label="Validé"
+                              label={t('validated')}
                               color="success"
                               size="small"
                               sx={{ fontSize: "0.75rem" }}
@@ -751,8 +753,8 @@ const ClientsRequests = () => {
               <CardContent sx={{ textAlign: "center", py: 6 }}>
                 <Typography sx={{ color: "#64748b", mb: 2 }}>
                   {searchTerm
-                    ? "Aucune demande ne correspond à votre recherche"
-                    : `Aucune demande ${filterStatus === "pending" ? "en attente" : filterStatus === "approved" ? "approuvée" : "rejetée"}`}
+                    ? t('noRequestMatchesSearch')
+                    : t('noRequestStatus', { status: filterStatus === "pending" ? t('pending') : filterStatus === "approved" ? t('approved') : t('rejected') })}
                 </Typography>
               </CardContent>
             )}
@@ -788,27 +790,19 @@ const ClientsRequests = () => {
             {confirmAction === "approve" ? (
               <>
                 <CheckIcon sx={{ color: "#10b981" }} />
-                Approuver la demande
+                {t('approveRequest')}
               </>
             ) : (
               <>
                 <CloseIcon sx={{ color: "#ef4444" }} />
-                Rejeter la demande
+                {t('rejectRequest')}
               </>
             )}
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Typography sx={{ color: "#94a3b8", mb: 2 }}>
-            Êtes-vous sûr de vouloir{" "}
-            <strong style={{ color: "white" }}>
-              {confirmAction === "approve" ? "approuver" : "rejeter"}
-            </strong>{" "}
-            la demande de{" "}
-            <strong style={{ color: "white" }}>
-              {selectedRequest?.first_name || selectedRequest?.username}
-            </strong>
-            ?
+            {t('areYouSureYouWantToAction', { action: confirmAction === 'approve' ? t('approve') : t('reject'), name: selectedRequest?.first_name || selectedRequest?.username })}
           </Typography>
           <Alert
             severity={confirmAction === "approve" ? "success" : "warning"}
@@ -821,11 +815,12 @@ const ClientsRequests = () => {
                 confirmAction === "approve"
                   ? "1px solid rgba(16, 185, 129, 0.2)"
                   : "1px solid rgba(251, 146, 60, 0.2)",
+                    color: "white",
             }}
           >
             {confirmAction === "approve"
-              ? "Le client recevra un email de confirmation et pourra accéder à son compte."
-              : "Le client recevra un email de notification et devra refaire une demande."}
+              ? t('clientWillReceiveConfirmation')
+              : t('clientWillReceiveNotification')}
           </Alert>
         </DialogContent>
         <DialogActions
@@ -846,7 +841,7 @@ const ClientsRequests = () => {
               },
             }}
           >
-            Annuler
+            {t('cancel')}
           </Button>
           <Button
             onClick={confirmAction_Submit}
@@ -861,7 +856,7 @@ const ClientsRequests = () => {
               },
             }}
           >
-            {confirmAction === "approve" ? "Approuver" : "Rejeter"}
+            {confirmAction === "approve" ? t('approve') : t('reject')}
           </Button>
         </DialogActions>
       </Dialog>

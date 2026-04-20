@@ -89,7 +89,7 @@ const notificationChannels = [
 ];
 
 const scheduleOptions = [
-  { value: 'immediate', label: 'Temps réel', description: 'Vérification continue' },
+  { value: 'realtime', label: 'Temps réel', description: 'Vérification continue' },
   { value: 'hourly', label: 'Toutes les heures', description: 'Vérification horaire' },
   { value: 'daily', label: 'Quotidien', description: 'Une fois par jour' },
   { value: 'weekly', label: 'Hebdomadaire', description: 'Une fois par semaine' },
@@ -114,6 +114,8 @@ const MODULE_ERP_MAP = {
 const getModuleERPLabel = (backendModule) => {
   return MODULE_ERP_MAP[backendModule] || { name: backendModule, color: '#64748b' };
 };
+
+const NOTIFICATIONS_API_BASE = "http://localhost:8000/api/notifications/";
 
 const fmtFull = (iso) =>
   new Date(iso).toLocaleString("fr-FR", {
@@ -255,16 +257,17 @@ const Notifications = () => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
-  const [notificationForm, setNotificationForm] = useState({ title: "", message: "", notification_type: "alert_triggered", priority: "medium" });
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({ title: "", message: "", notification_type: "alert_triggered", priority: "medium", channels: ["inapp"] });
   const [emailTemplate, setEmailTemplate] = useState({ subject: "", body: "" });
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({
     emailEnabled: true,
     inAppEnabled: true,
     telegramEnabled: false,
-    schedule: "immediate",
+    schedule: "realtime",
     emailAddresses: [],
-    telegramChatId: "",
+    telegramChatId: user?.telegram_chat_id || "",
   });
   const [emailInput, setEmailInput] = useState("");
 
@@ -334,13 +337,12 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8000/api/notifications/", { headers: authHeaders() });
-      if (!res.ok) throw new Error();
+      const res = await fetch(NOTIFICATIONS_API_BASE, { headers: authHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch notifications");
       const data = await res.json();
       const allNotifications = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
 
       if (user?.is_superuser) {
-        // Admin: séparer mes notifications vs notifications des employés
         const currentUserId = user?.id != null ? String(user.id) : null;
         const normalizeNotifUserId = (notif) => {
           const raw = notif?.user?.id ?? notif?.user;
@@ -353,68 +355,81 @@ const Notifications = () => {
         setNotifications(myNotifications);
         setEmployeeNotifications(empNotifications);
       } else {
-        // Utilisateur normal: voir seulement ses propres notifications
         setNotifications(allNotifications);
         setEmployeeNotifications([]);
       }
-    } catch { setErrorMessage("Erreur lors du chargement des notifications"); }
-    finally { setLoading(false); }
+    } catch (error) { 
+      setErrorMessage(error.message || "Erreur lors du chargement des notifications");
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const fetchAlerts = async () => {
     try {
       const isAdmin = user?.is_superuser || user?.is_staff;
-
+      
       if (isAdmin) {
-        // Admin: charger TOUTES les alertes avec les détails utilisateur
-        const res = await fetch("http://localhost:8000/api/alerts/?include_user=true", { headers: authHeaders() });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        const allAlerts = Array.isArray(data) ? data : [];
+        const myAlertsUrl = "http://localhost:8000/api/alerts/my_alerts/";
+        const employeeAlertsUrl = "http://localhost:8000/api/alerts/employee_alerts/";
 
-        console.log("DEBUG - Toutes les alertes du serveur:", allAlerts);
-        console.log("DEBUG - User admin (id, is_superuser):", { id: user.id, is_superuser: user.is_superuser });
+        const [myAlertsRes, employeeAlertsRes] = await Promise.all([
+          fetch(myAlertsUrl, { headers: authHeaders() }),
+          fetch(employeeAlertsUrl, { headers: authHeaders() })
+        ]);
 
-        // ✅ Séparer correctement: mes alertes (celles de l'admin) vs alertes des employés
-        // Normaliser les types pour éviter les décalages string/number
-        const currentUserId = user?.id != null ? String(user.id) : null;
-        const normalizeAlertUserId = (alert) => {
-          const raw = alert?.user?.id ?? alert?.user;
-          return raw != null ? String(raw) : null;
-        };
+        if (!myAlertsRes.ok || !employeeAlertsRes.ok) {
+          throw new Error('Failed to fetch one or more alert sets');
+        }
 
-        const myAlerts = allAlerts.filter((a) => normalizeAlertUserId(a) === currentUserId);
-        const empAlerts = allAlerts.filter((a) => normalizeAlertUserId(a) !== currentUserId);
+        const myAlertsData = await myAlertsRes.json();
+        const employeeAlertsData = await employeeAlertsRes.json();
 
-        console.log("DEBUG - Mes alertes (admin):", myAlerts, "Nombre:", myAlerts.length);
-        console.log("DEBUG - Alertes des employés:", empAlerts, "Nombre:", empAlerts.length);
-
-        setAlerts(myAlerts);           // ← Mes alertes (admin)
-        setEmployeeAlerts(empAlerts);  // ← Alertes des employés
+        setAlerts(Array.isArray(myAlertsData) ? myAlertsData : []);
+        setEmployeeAlerts(Array.isArray(employeeAlertsData) ? employeeAlertsData : []);
 
       } else {
-        // Utilisateur normal: voir seulement ses propres alertes
-        const res = await fetch("http://localhost:8000/api/alerts/", { headers: authHeaders() });
-        if (!res.ok) throw new Error();
+        const url = "http://localhost:8000/api/alerts/";
+        const res = await fetch(url, { headers: authHeaders() });
+        if (!res.ok) throw new Error('Failed to fetch alerts');
         const data = await res.json();
-        console.log("DEBUG - Alertes utilisateur normal:", data);
         setAlerts(Array.isArray(data) ? data : []);
         setEmployeeAlerts([]);
       }
-    } catch {
-      setErrorMessage("Erreur lors du chargement des alertes");
+    } catch (error) {
+      setErrorMessage(error.message || "Erreur lors du chargement des alertes");
     }
   };
 
   const fetchEmailRecipients = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/notifications/email_recipients/", {
+      const res = await fetch(`${NOTIFICATIONS_API_BASE}email_recipients/`, {
         headers: authHeaders(),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       const emails = Array.isArray(data.emails) ? data.emails : [];
       setNotificationSettings((prev) => ({ ...prev, emailAddresses: emails }));
+    } catch {
+      // Keep UI usable even if the API is unavailable
+    }
+  };
+
+  const fetchChannelPreferences = async () => {
+    try {
+      const res = await fetch(`${NOTIFICATIONS_API_BASE}channel_preferences/`, {
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setNotificationSettings((prev) => ({
+        ...prev,
+        emailEnabled: data.email_enabled ?? true,
+        inAppEnabled: data.in_app_enabled ?? true,
+        telegramEnabled: data.telegram_enabled ?? false,
+        schedule: data.schedule || "realtime",
+        telegramChatId: prev.telegramChatId || user?.telegram_chat_id || "",
+      }));
     } catch {
       // Keep UI usable even if the API is unavailable
     }
@@ -436,9 +451,14 @@ const Notifications = () => {
 
   useEffect(() => {
     if (user) {
+      setNotificationSettings((prev) => ({
+        ...prev,
+        telegramChatId: user.telegram_chat_id || prev.telegramChatId || "",
+      }));
       fetchNotifications();
       fetchAlerts();
       fetchEmailRecipients();
+      fetchChannelPreferences();
     }
   }, [user]);
 
@@ -452,7 +472,7 @@ const Notifications = () => {
 
   /* ─── Actions ────────────────────────────────────────────────────────── */
   const patchNotification = async (id, action) => {
-    const res = await fetch(`http://localhost:8000/api/notifications/${id}/${action}/`, {
+    const res = await fetch(`${NOTIFICATIONS_API_BASE}${id}/${action}/`, {
       method: "POST", headers: authHeaders(),
     });
     if (!res.ok) throw new Error();
@@ -481,7 +501,7 @@ const Notifications = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/notifications/mark_all_as_read/", {
+      const res = await fetch(`${NOTIFICATIONS_API_BASE}mark_all_as_read/`, {
         method: "POST", headers: authHeaders(),
       });
       if (!res.ok) throw new Error();
@@ -492,13 +512,20 @@ const Notifications = () => {
   };
 
   const handleOpenNotificationForm = (alert) => {
+    if (!alert.is_active || alert.is_paused) {
+      setErrorMessage("Cette alerte est en pause ou inactive. Activez-la pour envoyer une notification.");
+      return;
+    }
     setSelectedAlert(alert);
+    const defaultTemplate = `Bonjour {{user}}, l'alerte '{{alert}}' a été déclenchée dans le module {{module}} le {{date}}.`;
     setNotificationForm({
       title: `Alerte: ${alert.name}`,
-      message: alert.description || "",
+      message: defaultTemplate,
       notification_type: "alert_triggered",
       priority: alert.severity || "medium",
+      channels: ["inapp"]
     });
+    setIsCustomizing(false);
     setNotificationDialogOpen(true);
   };
 
@@ -558,6 +585,7 @@ const Notifications = () => {
         message: resolvedMessage,
         notification_type: notificationForm.notification_type,
         priority: notificationForm.priority,
+        channels: notificationForm.channels,
         email_subject: resolvedEmailSubject,
         email_body: resolvedEmailBody,
       };
@@ -568,7 +596,7 @@ const Notifications = () => {
 
       console.log("Payload envoyé:", payload);
 
-      const res = await fetch("http://localhost:8000/api/notifications/", {
+      const res = await fetch(NOTIFICATIONS_API_BASE, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify(payload),
@@ -656,9 +684,15 @@ const Notifications = () => {
   };
 
   const handleSaveSettings = () => {
-    // Valider les paramètres
-    if (notificationSettings.emailEnabled) {
-      const emails = notificationSettings.emailAddresses || [];
+    const { emailEnabled, inAppEnabled, telegramEnabled, emailAddresses, telegramChatId, schedule } = notificationSettings;
+
+    if (!emailEnabled && !inAppEnabled && !telegramEnabled) {
+      setErrorMessage("Veuillez activer au moins un canal de notification");
+      return;
+    }
+
+    if (emailEnabled) {
+      const emails = emailAddresses || [];
       if (emails.length === 0) {
         setErrorMessage("Veuillez entrer au moins une adresse email");
         return;
@@ -671,34 +705,60 @@ const Notifications = () => {
       }
     }
 
-    // Valider Telegram si activé
-    if (notificationSettings.telegramEnabled && !notificationSettings.telegramChatId) {
+    if (telegramEnabled && !telegramChatId) {
       setErrorMessage("Veuillez entrer un ID de chat Telegram");
       return;
     }
 
-    // Sauvegarder les paramètres sur le serveur
-    fetch("http://localhost:8000/api/notifications/email_recipients/", {
-      method: "PUT",
-      headers: authHeaders(),
-      body: JSON.stringify({ 
-        emails: notificationSettings.emailAddresses || [],
-        telegram_enabled: notificationSettings.telegramEnabled,
-        telegram_chat_id: notificationSettings.telegramChatId
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error();
-        return res.json();
-      })
-      .then((data) => {
-        const emails = Array.isArray(data.emails) ? data.emails : [];
-        setNotificationSettings((prev) => ({ ...prev, emailAddresses: emails }));
-        setSuccessMessage("Paramètres de notification sauvegardés");
-      })
-      .catch(() => {
+    const saveSettings = async () => {
+      try {
+        if (telegramEnabled && telegramChatId !== (user?.telegram_chat_id || "")) {
+          const telegramRes = await fetch(`${NOTIFICATIONS_API_BASE}register_telegram/`, {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ chat_id: telegramChatId }),
+          });
+          if (!telegramRes.ok) throw new Error();
+        }
+
+        const recipientsRes = await fetch(`${NOTIFICATIONS_API_BASE}email_recipients/`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            emails: emailEnabled ? emailAddresses || [] : [],
+          }),
+        });
+        if (!recipientsRes.ok) throw new Error();
+        const recipientsData = await recipientsRes.json();
+
+        const prefsRes = await fetch(`${NOTIFICATIONS_API_BASE}channel_preferences/`, {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            email_enabled: emailEnabled,
+            in_app_enabled: inAppEnabled,
+            telegram_enabled: telegramEnabled,
+            schedule,
+          }),
+        });
+        if (!prefsRes.ok) throw new Error();
+        const prefsData = await prefsRes.json();
+
+        setNotificationSettings((prev) => ({
+          ...prev,
+          emailEnabled: prefsData.email_enabled ?? prev.emailEnabled,
+          inAppEnabled: prefsData.in_app_enabled ?? prev.inAppEnabled,
+          telegramEnabled: prefsData.telegram_enabled ?? prev.telegramEnabled,
+          schedule: prefsData.schedule || prev.schedule,
+          emailAddresses: Array.isArray(recipientsData.emails) ? recipientsData.emails : prev.emailAddresses,
+        }));
+        setSuccessMessage("paramètre de notification sauvegardés");
+      } catch {
         setErrorMessage("Erreur lors de l'enregistrement des paramètres");
-      });
+      }
+    };
+
+    saveSettings();
   };
 
   /* ─── Filtered lists ─────────────────────────────────────────────────── */
@@ -1515,8 +1575,14 @@ const Notifications = () => {
                           key={alert.id}
                           onClick={() => handleOpenNotificationForm(alert)}
                           sx={{
-                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
-                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" },
+                            bgcolor: (!alert.is_active || alert.is_paused)
+                              ? "rgba(100, 116, 139, 0.05)" // Gris léger pour l'alerte en pause ou inactive
+                              : i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
+                            opacity: (alert.is_active && !alert.is_paused) ? 1 : 0.6, // Plus terne si en pause ou inactive
+                            "&:hover": { 
+                              bgcolor: (alert.is_active && !alert.is_paused) ? C.surfaceHi : "rgba(100, 116, 139, 0.1)", 
+                              cursor: (alert.is_active && !alert.is_paused) ? "pointer" : "not-allowed" 
+                            },
                             "& td": { borderColor: C.border, py: "12px", px: 2 }
                           }}
                         >
@@ -1533,12 +1599,13 @@ const Notifications = () => {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={alert.is_active ? "Actif" : "Inactif"}
+                              label={!alert.is_active ? "Inactif" : alert.is_paused ? "En pause" : "Actif"}
                               size="small"
                               sx={{
                                 height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px",
-                                bgcolor: alert.is_active ? C.successDim : C.dangerDim,
-                                color: alert.is_active ? C.success : C.danger
+                                bgcolor: !alert.is_active ? C.dangerDim : alert.is_paused ? "rgba(245, 158, 11, 0.15)" : C.successDim,
+                                color: !alert.is_active ? C.danger : alert.is_paused ? "#f59e0b" : C.success,
+                                border: `1px solid ${!alert.is_active ? "rgba(239, 68, 68, 0.3)" : alert.is_paused ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)"}`
                               }}
                             />
                           </TableCell>
@@ -1677,8 +1744,14 @@ const Notifications = () => {
                           key={alert.id}
                           onClick={() => handleOpenNotificationForm(alert)}
                           sx={{
-                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
-                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" },
+                            bgcolor: (!alert.is_active || alert.is_paused)
+                              ? "rgba(100, 116, 139, 0.05)" 
+                              : i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
+                            opacity: (alert.is_active && !alert.is_paused) ? 1 : 0.6,
+                            "&:hover": { 
+                              bgcolor: (alert.is_active && !alert.is_paused) ? C.surfaceHi : "rgba(100, 116, 139, 0.1)", 
+                              cursor: (alert.is_active && !alert.is_paused) ? "pointer" : "not-allowed" 
+                            },
                             "& td": { borderColor: C.border, py: "12px", px: 2 }
                           }}
                         >
@@ -1695,12 +1768,13 @@ const Notifications = () => {
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={alert.is_active ? "Actif" : "Inactif"}
+                              label={!alert.is_active ? "Inactif" : alert.is_paused ? "En pause" : "Actif"}
                               size="small"
                               sx={{
                                 height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px",
-                                bgcolor: alert.is_active ? C.successDim : C.dangerDim,
-                                color: alert.is_active ? C.success : C.danger
+                                bgcolor: !alert.is_active ? C.dangerDim : alert.is_paused ? "rgba(245, 158, 11, 0.15)" : C.successDim,
+                                color: !alert.is_active ? C.danger : alert.is_paused ? "#f59e0b" : C.success,
+                                border: `1px solid ${!alert.is_active ? "rgba(239, 68, 68, 0.3)" : alert.is_paused ? "rgba(245, 158, 11, 0.3)" : "rgba(16, 185, 129, 0.3)"}`
                               }}
                             />
                           </TableCell>
@@ -1744,7 +1818,7 @@ const Notifications = () => {
             TAB — PARAMÈTRES (selon le rôle)
         ══════════════════════════════════════════════════════════ */}
         {(user?.is_superuser ? activeTab === 4 : activeTab === 2) && (
-          <Box sx={{ maxWidth: 800 }}>
+          <Box sx={{ maxWidth: 10000 }}>
             {/* Canaux de notification */}
             <Box sx={{ mb: 4, p: 3, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
@@ -2074,7 +2148,6 @@ const Notifications = () => {
               label="Titre"
               value={notificationForm.title}
               onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
-              disabled
               sx={{
                 "& .MuiOutlinedInput-root": { color: "white", borderColor: C.border },
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
@@ -2090,9 +2163,9 @@ const Notifications = () => {
               label="Message"
               value={notificationForm.message}
               onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
-              disabled
               multiline
               rows={4}
+              disabled={!isCustomizing}
               sx={{
                 "& .MuiOutlinedInput-root": { color: "white", borderColor: C.border },
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
@@ -2104,11 +2177,43 @@ const Notifications = () => {
             />
 
             <Box>
+              <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", fontWeight: 700, mb: 1.5, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Variables de personnalisation
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 1 }}>
+                {[
+                  { token: "{{user}}", label: "Nom" },
+                  { token: "{{email}}", label: "Email" },
+                  { token: "{{alert}}", label: "Nom d'alerte" },
+                  { token: "{{module}}", label: "Module" },
+                  { token: "{{date}}", label: "Date" },
+                ].map((t) => (
+                  <Chip
+                    key={t.token}
+                    label={t.label}
+                    onClick={() => insertToken("message", t.token)}
+                    sx={{
+                      bgcolor: "rgba(59,130,246,0.08)",
+                      color: C.accentHi,
+                      border: `1px dashed ${C.borderHi}`,
+                      fontSize: "0.75rem",
+                      height: 26,
+                      "&:hover": { bgcolor: C.accentDim, borderColor: C.accent },
+                    }}
+                  />
+                ))}
+              </Box>
+              <Typography variant="caption" sx={{ color: C.textMuted, fontStyle: "italic", fontSize: "0.7rem" }}>
+                Cliquez sur une variable pour l'insérer dans le message. Les variables seront remplacées dynamiquement lors de l'envoi.
+              </Typography>
+            </Box>
+
+            <Box>
               <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 Type de notification
               </Typography>
               <Box sx={{ display: "flex", gap: 1 }}>
-                {[
+                {[  
                   { value: "alert_triggered", label: "Alerte déclenchée" },
                   { value: "alert_updated", label: "Alerte mise à jour" },
                   { value: "system", label: "Système" },
@@ -2159,68 +2264,66 @@ const Notifications = () => {
                 ))}
               </Box>
             </Box>
-            {showEmailTemplate && (
-              <>
-                <Divider sx={{ borderColor: C.border, my: 1 }} />
-                <Box>
-                  <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "0.9rem", mb: 0.75 }}>
-                    Personnalisation email (modele)
-                  </Typography>
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <TextField
-                      fullWidth
-                      label="Sujet (modele)"
-                      value={emailTemplate.subject}
-                      onChange={(e) => setEmailTemplate({ ...emailTemplate, subject: e.target.value })}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { color: C.text, borderColor: C.border },
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
-                        "& .MuiInputBase-input::placeholder": { color: C.textMuted, opacity: 0.7 },
-                        "& .MuiInputLabel-root": { color: C.textMuted },
-                      }}
-                      variant="outlined"
-                    />
-                    <TextField
-                      fullWidth
-                      label="Corps (modele)"
-                      value={emailTemplate.body}
-                      onChange={(e) => setEmailTemplate({ ...emailTemplate, body: e.target.value })}
-                      multiline
-                      rows={4}
-                      sx={{
-                        "& .MuiOutlinedInput-root": { color: C.text, borderColor: C.border },
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
-                        "& .MuiInputBase-input::placeholder": { color: C.textMuted, opacity: 0.7 },
-                        "& .MuiInputLabel-root": { color: C.textMuted },
-                      }}
-                      variant="outlined"
-                    />
-                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                      <Button
-                        variant="contained"
-                        onClick={handleSaveTemplate}
-                        sx={{ bgcolor: C.accent, color: "white", textTransform: "none", fontWeight: 600, boxShadow: "none", "&:hover": { bgcolor: "#2563eb", boxShadow: "none" } }}
-                      >
-                        Enregistrer le modele
-                      </Button>
-                    </Box>
-                  </Box>
-                </Box>
-              </>
-            )}
+
+            <Box>
+              <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Canaux d'envoi
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                {[
+                  { value: "email", label: "Email" },
+                  { value: "inapp", label: "In-App" },
+                  { value: "telegram", label: "Telegram" },
+                ].map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    label={opt.label}
+                    onClick={() => {
+                        const currentChannels = notificationForm.channels || [];
+                        const nextChannels = currentChannels.includes(opt.value)
+                          ? currentChannels.filter(c => c !== opt.value)
+                          : [...currentChannels, opt.value];
+                        setNotificationForm({ ...notificationForm, channels: nextChannels });
+                    }}
+                    sx={{
+                      bgcolor: notificationForm.channels?.includes(opt.value) ? C.accent : C.surfaceHi,
+                      color: notificationForm.channels?.includes(opt.value) ? "white" : C.textMuted,
+                      border: `1px solid ${notificationForm.channels?.includes(opt.value) ? C.accent : C.border}`,
+                      cursor: "pointer",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      "&:hover": { bgcolor: notificationForm.channels?.includes(opt.value) ? "#2563eb" : C.borderHi },
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
           </Box>
         </DialogContent>
 
         <DialogActions sx={{ p: 2, borderTop: `1px solid ${C.border}`, gap: 1 }}>
+          <Button 
+            variant="outlined"
+            onClick={() => {
+              setIsCustomizing(true);
+              setSuccessMessage("Mode personnalisation activé !");
+            }}
+            disabled={isCustomizing}
+            sx={{ 
+              color: isCustomizing ? C.textMuted : C.accentHi, 
+              borderColor: isCustomizing ? C.border : C.borderHi, 
+              textTransform: "none", 
+              fontWeight: 600, 
+              fontSize: "0.82rem", 
+              px: 2,
+              borderRadius: "8px",
+              "&:hover": { borderColor: C.accent, bgcolor: C.accentDim }
+            }}
+          >
+         Personnaliser
+          </Button>
           <Button onClick={() => setNotificationDialogOpen(false)} sx={{ color: C.textMuted, textTransform: "none", fontWeight: 600, fontSize: "0.82rem", px: 2 }}>
             Annuler
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => setShowEmailTemplate((prev) => !prev)}
-            sx={{ color: C.textMuted, borderColor: C.border, textTransform: "none", fontWeight: 600, fontSize: "0.82rem", px: 2 }}
-          >
-            Personnaliser
           </Button>
           <Button
             variant="contained"

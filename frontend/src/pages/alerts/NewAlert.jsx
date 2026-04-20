@@ -1,787 +1,785 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
 import {
-  Container,
   Box,
   Typography,
-  Paper,
-  TextField,
   Button,
-  Grid,
-  Card,
-  CardContent,
+  TextField,
+  Dialog,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Alert,
+  Snackbar,
+  CircularProgress,
+  Stepper,
+  Step,
+  StepLabel,
+  StepConnector,
+  Chip,
+  MenuItem,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  Chip,
-  Alert,
-  Snackbar,
-  Fade,
-  Stack,
-  Divider,
+  Paper,
   LinearProgress,
-  useTheme,
-  useMediaQuery,
-  IconButton,
-} from '@mui/material';
+} from "@mui/material";
 import {
-  ArrowBack as ArrowBackIcon,
-  Save as SaveIcon,
-  Notifications as NotificationsIcon,
-  Speed as SpeedIcon,
-  Timeline as TimelineIcon,
+  Close as CloseIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Bolt as BoltIcon,
   Inventory as InventoryIcon,
   People as PeopleIcon,
-  Description as DescriptionIcon,
+  Receipt as ReceiptIcon,
   Build as BuildIcon,
   Factory as FactoryIcon,
-  Error as ErrorIcon,
-  TrendingUp as TrendingUpIcon,
-  ChevronRight as ChevronRightIcon,
+  Person as PersonIcon,
   CheckCircle as CheckCircleIcon,
-  Menu as MenuIcon,
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useActivityContext } from '../../context/ActivityContext';
-import SharedSidebar from '../../components/SharedSidebar';
+} from "@mui/icons-material";
 
-/* ─── Design tokens ──────────────────────────────────────────── */
-const T = {
-  bg: '#07090f',
-  surface: '#0d1117',
-  surfaceAlt: '#111827',
-  border: 'rgba(255,255,255,0.07)',
-  borderHover: 'rgba(255,255,255,0.14)',
-  accent: '#3b82f6',
-  accentDark: '#2563eb',
-  accentGlow: 'rgba(59,130,246,0.25)',
-  success: '#22c55e',
-  error: '#ef4444',
-  warning: '#f59e0b',
-  textPrimary: '#f1f5f9',
-  textSecondary: '#94a3b8',
-  textMuted: 'rgba(148,163,184,0.5)',
+/* ─── Design tokens ─────────────────────────────────────────────────────── */
+const C = {
+  bg: "#070b14",
+  surface: "#0d1321",
+  surfaceHi: "#111827",
+  border: "#1e2d42",
+  borderHi: "#2d4a6e",
+  accent: "#3b82f6",
+  accentDim: "rgba(59,130,246,0.12)",
+  accentHi: "#60a5fa",
+  success: "#10b981",
+  successDim: "rgba(16,185,129,0.12)",
+  warning: "#f59e0b",
+  warningDim: "rgba(245,158,11,0.12)",
+  danger: "#ef4444",
+  dangerDim: "rgba(239,68,68,0.12)",
+  text: "#f1f5f9",
+  textMuted: "#64748b",
+  textSub: "#94a3b8",
 };
 
-/* ─── Shared field sx ────────────────────────────────────────── */
-const fieldSx = (error = false) => ({
-  '& .MuiOutlinedInput-root': {
-    bgcolor: T.surfaceAlt,
-    color: T.textPrimary,
-    borderRadius: 1.5,
-    '& fieldset': { borderColor: error ? T.error : T.border },
-    '&:hover fieldset': { borderColor: error ? T.error : T.borderHover },
-    '&.Mui-focused fieldset': { borderColor: T.accent, borderWidth: 1.5 },
+/* ─── Données métier ─────────────────────────────────────────────────────── */
+const MODULES = [
+  { value: "stock", label: "Stock", icon: InventoryIcon, color: "#3b82f6" },
+  { value: "crm", label: "CRM", icon: PeopleIcon, color: "#8b5cf6" },
+  { value: "facturation", label: "Facturation", icon: ReceiptIcon, color: "#ec4899" },
+  { value: "gmao", label: "GMAO", icon: BuildIcon, color: "#f59e0b" },
+  { value: "gpao", label: "GPAO", icon: FactoryIcon, color: "#f59e0b" },
+  { value: "rh", label: "Ressources Humaines", icon: PersonIcon, color: "#06b6d4" },
+];
+
+/* ─── Correspondance Rôle → Module autorisé ─────────────────────────────── */
+const ROLE_MODULE = {
+  "Responsable entrepôt": "stock",
+  "Responsable comptabilité": "facturation",
+  "Équipe commerciale": "crm",
+  "Technicien": "gmao",
+  "Superviseur": "gpao",
+  "Manager": "stock",
+  "Administrateur": null, // null = tous les modules
+};
+
+const ADMIN_MODULES = ["stock", "crm", "facturation", "gmao", "gpao", "rh"];
+
+const FIELDS = {
+  stock: [
+    { value: "quantity", label: "Quantité" },
+    { value: "min_stock", label: "Seuil critique" },
+    { value: "stock_value", label: "Valeur du stock" },
+    { value: "replenishment_delay", label: "Délai réapprovisionnement" },
+  ],
+  crm: [
+    { value: "lead_score", label: "Score du lead" },
+    { value: "days_since_last_contact", label: "Jours depuis dernier contact" },
+    { value: "potential_value", label: "Valeur potentielle" },
+    { value: "status", label: "Statut" },
+    { value: "source", label: "Source" },
+  ],
+  facturation: [
+    { value: "amount", label: "Montant" },
+    { value: "days_overdue", label: "Jours de retard" },
+    { value: "due_date", label: "Date d'échéance" },
+    { value: "invoice_status", label: "Statut facture" },
+  ],
+  gmao: [
+    { value: "maintenance_due_date", label: "Date de maintenance" },
+    { value: "task_priority", label: "Priorité de la tâche" },
+    { value: "equipment_status", label: "Statut équipement" },
+    { value: "maintenance_cost", label: "Coût de maintenance" },
+  ],
+  gpao: [
+    { value: "production_delay", label: "Délai de production" },
+    { value: "defect_rate", label: "Taux de défaut" },
+    { value: "raw_material_stock", label: "Stock matière première" },
+    { value: "machine_capacity", label: "Capacité machine" },
+  ],
+  rh: [
+    { value: "contract_end_date", label: "Date fin de contrat" },
+    { value: "leave_balance", label: "Solde de congés" },
+    { value: "absence_days", label: "Jours d'absence" },
+    { value: "certification_expiry", label: "Expiration certification" },
+  ],
+};
+
+const OPERATORS = [
+  { value: "eq", label: "Égal à" },
+  { value: "neq", label: "Différent de" },
+  { value: "lt", label: "Inférieur à" },
+  { value: "lte", label: "Inférieur ou égal à" },
+  { value: "gt", label: "Supérieur à" },
+  { value: "gte", label: "Supérieur ou égal à" },
+  { value: "contains", label: "Contient" },
+];
+
+const PRIORITIES = [
+  { value: "critical", label: "Critique", color: "#ef4444", bgColor: "rgba(239,68,68,0.15)" },
+  { value: "high", label: "Haute", color: "#f97316", bgColor: "rgba(249,115,22,0.15)" },
+  { value: "medium", label: "Moyenne", color: "#3b82f6", bgColor: "rgba(59,130,246,0.15)" },
+  { value: "low", label: "Basse", color: "#10b981", bgColor: "rgba(16,185,129,0.15)" },
+];
+
+const CHANNELS = [];
+const NOTIF_TYPES = [];
+const RECURRENCES = [];
+
+const getFieldsForModule = (module) => FIELDS[module] || [];
+
+const inputSx = {
+  "& .MuiOutlinedInput-root": {
+    color: C.text,
+    "& fieldset": { borderColor: C.border },
+    "&:hover fieldset": { borderColor: C.borderHi },
+    "&.Mui-focused fieldset": { borderColor: C.accent },
   },
-  '& .MuiInputLabel-root': { color: T.textSecondary, fontSize: '0.875rem' },
-  '& .MuiFormHelperText-root': { color: T.error, mt: 0.75 },
-  '& input': { color: T.textPrimary },
-  '& textarea': { color: T.textPrimary },
-});
-
-const selectSx = {
-  width: '100%',
-  minWidth: 0,
-  bgcolor: T.surfaceAlt,
-  color: T.textPrimary,
-  borderRadius: 1.5,
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: T.border },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: T.borderHover },
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: T.accent, borderWidth: 1.5 },
-  '& .MuiSvgIcon-root': { color: T.textSecondary },
+  "& .MuiInputLabel-root": { color: C.textMuted },
+  "& .MuiInputLabel-root.Mui-focused": { color: C.accentHi },
+  "& .MuiSelect-icon": { color: C.textMuted },
 };
 
-const selectMenuProps = {
-  PaperProps: {
-    sx: {
-      '& .MuiMenuItem-root': {
-        color: T.textPrimary,
-      },
-    },
-  },
-};
-
-/* ─── Selectable Card ────────────────────────────────────────── */
-const SelectCard = ({ selected, accentColor = T.accent, onClick, children, compact = false, disabled = false }) => (
-  <Card
-    onClick={disabled ? undefined : onClick}
-    sx={{
-      bgcolor: selected ? `${accentColor}12` : T.surfaceAlt,
-      border: selected ? `1.5px solid ${accentColor}` : `1px solid ${T.border}`,
-      cursor: disabled ? 'not-allowed' : 'pointer',
-      transition: 'all 0.18s ease',
-      height: '100%',
-      borderRadius: 2,
-      position: 'relative',
-      overflow: 'visible',
-      opacity: disabled ? 0.5 : 1,
-      '&:hover': {
-        bgcolor: disabled ? undefined : selected ? `${accentColor}18` : 'rgba(255,255,255,0.05)',
-        borderColor: disabled ? undefined : selected ? accentColor : T.borderHover,
-        transform: disabled ? undefined : 'translateY(-2px)',
-        boxShadow: disabled ? undefined : selected ? `0 8px 24px ${accentColor}30` : '0 4px 16px rgba(0,0,0,0.3)',
-      },
-    }}
-  >
-    {selected && (
-      <Box sx={{
-        position: 'absolute',
-        top: -8,
-        right: -8,
-        bgcolor: accentColor,
-        borderRadius: '50%',
-        width: 20,
-        height: 20,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: `0 2px 8px ${accentColor}60`,
-      }}>
-        <CheckCircleIcon sx={{ fontSize: 14, color: 'white' }} />
-      </Box>
-    )}
-    <CardContent sx={{ p: compact ? 2 : 2.5, '&:last-child': { pb: compact ? 2 : 2.5 } }}>
-      {children}
-    </CardContent>
-  </Card>
-);
-
-/* ─── Section Header ─────────────────────────────────────────── */
-const SectionHeader = ({ title, subtitle }) => (
-  <Box sx={{ mb: 3 }}>
-    <Typography variant="subtitle1" sx={{ color: T.textPrimary, fontWeight: 600, fontSize: '0.9375rem', letterSpacing: '-0.01em' }}>
-      {title}
-    </Typography>
-    {subtitle && (
-      <Typography variant="body2" sx={{ color: T.textSecondary, mt: 0.5, fontSize: '0.8125rem' }}>
-        {subtitle}
-      </Typography>
-    )}
-  </Box>
-);
-
-/* ─── Main Component ─────────────────────────────────────────── */
-const NewAlert = () => {
-  const navigate = useNavigate();
+/* ─── Composant principal ────────────────────────────────────────────────── */
+const NewAlert = ({ isOpen, onClose, onSuccess }) => {
   const { user } = useAuth();
-  const { triggerActivityRefresh } = useActivityContext();
   const [activeStep, setActiveStep] = useState(0);
-  const [openSnackbar, setOpenSnackbar] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
-  const [validationErrors, setValidationErrors] = useState({});
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [fetchingData, setFetchingData] = useState(false);
+
+  const userRole = user?.role || "Manager";
+  const isAdmin = user?.is_superuser || user?.is_staff || userRole === "Administrateur";
+  
+  const allowedModules = isAdmin ? ADMIN_MODULES : (ROLE_MODULE[userRole] ? [ROLE_MODULE[userRole]] : ["stock"]);
+  const defaultModule = allowedModules[0];
 
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    module: '',
-    severity: 'medium',
-    conditionType: 'threshold',
-    thresholdValue: '',
-    comparisonOperator: 'greater_than',
-    conditionField: 'quantity',
-    compareTo: 'value',
-    product: '',
-    categories: [],
-    isActive: true,
-    notificationChannels: ['email'],
-    recipients: '',
-    repeatUntilResolved: false,
-    schedule: 'immediate',
+    name: "",
+    description: "",
+    module: defaultModule,
+    priority: "medium",
+    conditionLogic: "AND",
+    conditions: [{ field: "", operator: "", value: "" }],
+    channels: ["email", "inapp"],
+    recipients: "",
+    recipientRole: "",
+    notifType: "immediate",
+    recurrence: "once",
+    snoozeHours: 0,
+    is_active: true,
+    customSubject: "",
+    customBody: "",
+    product: "",
+    category: "",
   });
 
-  const roleToModule = {
-    responsable_stock: 'stock',
-    commercial: 'crm',
-    achats: 'facturation',
-  };
-
-  const lockedModule = roleToModule[user?.role] || '';
-
   useEffect(() => {
-    if (!user?.role || formData.module) return;
-
-    const defaultModule = roleToModule[user.role];
-    if (defaultModule) {
-      setFormData(prev => ({ ...prev, module: defaultModule }));
-    }
-  }, [user?.role, formData.module]);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
+      setFetchingData(true);
       try {
-        const token = localStorage.getItem('access_token');
-        const res = await fetch('http://localhost:8000/api/stock/products/', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.results || []);
-        setProducts(items);
+        const headers = { Authorization: `Bearer ${localStorage.getItem("access_token")}` };
+        const [catRes, prodRes] = await Promise.all([
+          fetch("http://localhost:8000/api/categories/", { headers }),
+          fetch("http://localhost:8000/api/stock/products/", { headers }),
+        ]);
+
+        if (catRes.ok) {
+          const catData = await catRes.json();
+          setCategories(Array.isArray(catData) ? catData : catData.results || []);
+        }
+        if (prodRes.ok) {
+          const prodData = await prodRes.json();
+          setProducts(Array.isArray(prodData) ? prodData : prodData.results || []);
+        }
       } catch (err) {
-        setProducts([]);
+        console.error("Error fetching form data:", err);
+      } finally {
+        setFetchingData(false);
       }
     };
 
-    const fetchCategories = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        const res = await fetch('http://localhost:8000/api/categories/', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.results || []);
-        setCategories(items);
-      } catch (err) {
-        setCategories([]);
-      }
-    };
-
-    if (formData.module === 'stock') {
-      fetchProducts();
-      fetchCategories();
+    if (isOpen) {
+      fetchData();
+      setActiveStep(0);
+      setFormData({
+        name: "",
+        description: "",
+        module: defaultModule,
+        priority: "medium",
+        conditionLogic: "AND",
+        conditions: [{ field: "", operator: "", value: "" }],
+        channels: ["email", "inapp"],
+        recipients: "",
+        recipientRole: "",
+        notifType: "immediate",
+        recurrence: "once",
+        snoozeHours: 0,
+        is_active: true,
+        customSubject: "",
+        customBody: "",
+        product: "",
+        category: "",
+      });
+      setErrorMessage("");
     }
-  }, [formData.module]);
+  }, [isOpen, defaultModule]);
 
-  /* ─── Data ───────────────────────────────────────────────── */
-  const modules = [
-    { value: 'stock',       label: 'Stock',       icon: <InventoryIcon />,   color: '#3b82f6' },
-    { value: 'crm',         label: 'CRM',         icon: <PeopleIcon />,      color: '#22c55e' },
-    { value: 'facturation', label: 'Facturation', icon: <DescriptionIcon />, color: '#f59e0b' },
-    { value: 'gmao',        label: 'GMAO',        icon: <BuildIcon />,       color: '#ef4444' },
-    { value: 'gpao',        label: 'GPAO',        icon: <FactoryIcon />,     color: '#a855f7' },
-    { value: 'rh',          label: 'RH',          icon: <PeopleIcon />,      color: '#06b6d4' },
-  ];
+  const handleChange = (field, value) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
-  const severityOptions = [
-    { value: 'critical', label: 'Critique', color: '#ef4444' },
-    { value: 'high',     label: 'Haute',    color: '#f97316' },
-    { value: 'medium',   label: 'Moyenne',  color: '#3b82f6' },
-    { value: 'low',      label: 'Basse',    color: '#22c55e' },
-  ];
+  const isModuleAllowed = (moduleValue) => {
+    return true;
+  };
 
-  const conditionTypes = [
-    { value: 'threshold', label: 'Seuil',               icon: <SpeedIcon sx={{ fontSize: 18 }} />,    description: "Déclencher quand une valeur dépasse un seuil défini" },
-    { value: 'absence',   label: 'Absence de données',  icon: <ErrorIcon sx={{ fontSize: 18 }} />,    description: "Déclencher en cas de données manquantes" },
-    { value: 'anomaly',   label: "Détection d'anomalie",icon: <TimelineIcon sx={{ fontSize: 18 }} />, description: "Déclencher sur comportement statistiquement anormal" },
-    { value: 'trend',     label: 'Tendance',             icon: <TrendingUpIcon sx={{ fontSize: 18 }} />, description: "Déclencher sur évolution de tendance significative" },
-  ];
+  const handleModuleChange = (moduleValue) => {
+    handleChange("module", moduleValue);
+  };
 
-  const comparisonOperators = [
-    { value: 'greater_than',         symbol: '>' },
-    { value: 'less_than',            symbol: '<' },
-    { value: 'equal_to',                symbol: '=' },
-    { value: 'not_equal',     symbol: '\u2260' },
-    { value: 'greater_equal',  symbol: '\u2265' },
-    { value: 'less_equal',     symbol: '\u2264' },
-  ];
+  const handleConditionChange = (index, field, value) => {
+    const next = [...formData.conditions];
+    next[index][field] = value;
+    setFormData((prev) => ({ ...prev, conditions: next }));
+  };
 
-  const steps = [
-    'Informations de base',
-    'Conditions de declenchement',
-  ];
-  /* ─── Handlers ───────────────────────────────────────────── */
-  const validateStep = (step) => {
-    const errors = {};
-    if (step === 0) {
-      if (!formData.name.trim()) errors.name = 'Le nom est requis';
-      if (!formData.module) errors.module = 'Veuillez sélectionner un module';
-    }
-    if (step === 1) {
-      if (formData.compareTo === 'value' && !formData.thresholdValue) {
-        errors.thresholdValue = 'Cette valeur est requise';
-      }
-      if (formData.module === 'stock' && formData.categories.length === 0) {
-        errors.categories = 'Sélectionnez au moins une catégorie';
+  const addCondition = () =>
+    setFormData((prev) => ({
+      ...prev,
+      conditions: [...prev.conditions, { field: "", operator: "", value: "" }],
+    }));
+
+  const removeCondition = (index) => {
+    if (formData.conditions.length > 1)
+      setFormData((prev) => ({
+        ...prev,
+        conditions: prev.conditions.filter((_, i) => i !== index),
+      }));
+  };
+
+  const validateStep = () => {
+    if (activeStep === 0) {
+      if (!formData.name.trim()) {
+        setErrorMessage("Le nom de la règle est requis.");
+        return false;
       }
     }
-    
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    if (activeStep === 1) {
+      const empty = formData.conditions.some(
+        (c) => !c.field || !c.operator || !c.value
+      );
+      if (empty) {
+        setErrorMessage("Veuillez remplir toutes les conditions.");
+        return false;
+      }
+    }
+    return true;
   };
 
-  const handleInputChange = (field) => (e) => {
-    setFormData({ ...formData, [field]: e.target.value });
-    if (validationErrors[field]) setValidationErrors({ ...validationErrors, [field]: undefined });
-  };
-
-  const handleCategoriesChange = (e) => {
-    const value = (e.target.value || []).map((v) => {
-      const parsed = Number(v);
-      return Number.isFinite(parsed) ? parsed : v;
-    });
-    setFormData({ ...formData, categories: value });
-    if (validationErrors.categories) setValidationErrors({ ...validationErrors, categories: undefined });
-  };
-
-
-  const showSnackbar = (msg, sev = 'success') => {
-    setSnackbarMessage(msg);
-    setSnackbarSeverity(sev);
-    setOpenSnackbar(true);
-  };
-
-  const transition = (fn) => {
-    setIsAnimating(true);
-    setTimeout(() => { fn(); setIsAnimating(false); }, 180);
-  };
-
-  const handleNext = () => {
-    if (validateStep(activeStep)) {
-      transition(() => setActiveStep(s => s + 1));
-    } else {
-      showSnackbar('Veuillez remplir tous les champs requis', 'error');
+  const nextStep = () => {
+    if (validateStep()) {
+      setActiveStep((p) => p + 1);
+      setErrorMessage("");
     }
   };
 
-  const handleBack = () => transition(() => setActiveStep(s => s - 1));
+  const prevStep = () => {
+    setActiveStep((p) => p - 1);
+    setErrorMessage("");
+  };
 
   const handleSubmit = async () => {
-    if (!validateStep(activeStep)) {
-      showSnackbar('Veuillez vérifier tous les champs', 'error');
-      return;
-    }
+    if (!validateStep()) return;
+    setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const alertData = {
-        name: formData.name, 
+      const payload = {
+        name: formData.name,
         description: formData.description,
-        module: formData.module, 
-        severity: formData.severity,
-        condition_type: formData.conditionType, 
-        threshold_value: formData.thresholdValue,
-        comparison_operator: formData.comparisonOperator,
-        condition_field: formData.conditionField,
-        compare_to: formData.compareTo,
-        categories: formData.categories,
+        module: formData.module,
+        severity: formData.priority,
+        is_active: formData.is_active,
+        check_condition: JSON.stringify({
+          logic: formData.conditionLogic,
+          conditions: formData.conditions,
+        }),
+        channels: formData.channels,
+        recipients: formData.recipients,
+        recipient_role: formData.recipientRole,
+        notif_type: formData.notifType,
+        recurrence: formData.recurrence,
+        snooze_hours: formData.snoozeHours,
+        custom_subject: formData.customSubject,
+        custom_body: formData.customBody,
         product: formData.product || null,
-        is_active: formData.isActive,
-        notification_channels: formData.notificationChannels,
-        recipients: formData.recipients ? formData.recipients.split(',').map(e => e.trim()) : [],
-        repeat_until_resolved: formData.repeatUntilResolved,
-        schedule: formData.schedule,
+        category: formData.category || null,
       };
-      const res = await fetch('http://localhost:8000/api/alerts/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(alertData),
+
+      const response = await fetch("http://localhost:8000/api/alerts/", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
-      const responseText = await res.text();
-      let responseJson = null;
-      if (responseText) {
-        try {
-          responseJson = JSON.parse(responseText);
-        } catch (parseError) {
-          responseJson = null;
-        }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Erreur lors de la création.");
       }
-      if (!res.ok) {
-        const message =
-          responseJson?.message ||
-          responseJson?.detail ||
-          responseText ||
-          `Erreur ${res.status}`;
-        throw new Error(message);
-      }
-      showSnackbar("Règle d'alerte créée avec succès", 'success');
-      triggerActivityRefresh();
-      setTimeout(() => navigate('/alerts'), 2000);
-    } catch (err) {
-      showSnackbar('Erreur : ' + err.message, 'error');
+
+      setSuccessMessage("Règle créée avec succès !");
+      setTimeout(() => {
+        onClose();
+        if (onSuccess) onSuccess();
+      }, 1500);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  /* ─── Threshold config panel ─────────────────────────────── */
-  const thresholdPanel = {
-    threshold: {
-      title: 'Configuration du seuil',
-      fields: (
-        <Grid container spacing={2.5} sx={{ pt: 0.5, minWidth: 0 }}>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth sx={{ mt: 0.5, width: '100%' }}>
-              <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Opérateur de comparaison</InputLabel>
-              <Select fullWidth value={formData.comparisonOperator} onChange={handleInputChange('comparisonOperator')} label="Opérateur de comparaison" sx={selectSx} MenuProps={selectMenuProps}>
-                {comparisonOperators.map(op => (
-                  <MenuItem key={op.value} value={op.value}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Typography sx={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent, fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{op.symbol}</Typography>
-                      <Typography sx={{ color: T.textPrimary, fontSize: '0.875rem' }}>{op.label}</Typography>
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Valeur du seuil" type="number" placeholder="Ex: 100" value={formData.thresholdValue} onChange={handleInputChange('thresholdValue')} error={!!validationErrors.thresholdValue} helperText={validationErrors.thresholdValue} required sx={{ ...fieldSx(!!validationErrors.thresholdValue), width: '100%' }} />
-          </Grid>
-        </Grid>
-      ),
-    },
-    absence: {
-      title: "Délai avant déclenchement",
-      fields: <TextField fullWidth label="Durée sans données (minutes)" type="number" placeholder="Ex: 30" value={formData.thresholdValue} onChange={handleInputChange('thresholdValue')} error={!!validationErrors.thresholdValue} helperText={validationErrors.thresholdValue} required sx={fieldSx(!!validationErrors.thresholdValue)} />,
-    },
-    anomaly: {
-      title: "Sensibilité de détection",
-      fields: <TextField fullWidth label="Déviation standard (écarts-types)" type="number" placeholder="Ex: 2.5" value={formData.thresholdValue} onChange={handleInputChange('thresholdValue')} error={!!validationErrors.thresholdValue} helperText={validationErrors.thresholdValue || "Valeur plus élevée = sensibilité réduite"} required sx={fieldSx(!!validationErrors.thresholdValue)} />,
-    },
-    trend: {
-      title: "Seuil de variation",
-      fields: <TextField fullWidth label="Pourcentage d'augmentation" type="number" placeholder="Ex: 20" value={formData.thresholdValue} onChange={handleInputChange('thresholdValue')} error={!!validationErrors.thresholdValue} helperText={validationErrors.thresholdValue} required sx={fieldSx(!!validationErrors.thresholdValue)} />,
-    },
+  const buildPreview = () => {
+    const condStr = formData.conditions
+      .map((c, i) => {
+        const prefix = i === 0 ? "SI" : `  ${formData.conditionLogic}`;
+        const fieldLabel =
+          getFieldsForModule(formData.module).find((f) => f.value === c.field)
+            ?.label || c.field;
+        const opLabel =
+          OPERATORS.find((o) => o.value === c.operator)?.label || c.operator;
+        return `${prefix} ${fieldLabel} ${opLabel} ${c.value}`;
+      })
+      .join("\n");
+
+    return [
+      `Règle        : ${formData.name}`,
+      formData.description ? `Description  : ${formData.description}` : null,
+      `Module       : ${MODULES.find((m) => m.value === formData.module)?.label}`,
+      `Priorité     : ${PRIORITIES.find((p) => p.value === formData.priority)?.label}`,
+      ``,
+      `Conditions   :`,
+      condStr,
+      ``,
+      formData.category ? `Catégorie    : ${categories.find(c => String(c.id) === String(formData.category))?.name || formData.category}` : null,
+      formData.product ? `Produit      : ${products.find(p => String(p.id) === String(formData.product))?.name || formData.product}` : null,
+    ]
+      .filter((l) => l !== null)
+      .join("\n");
   };
 
-  /* ─── Step content ───────────────────────────────────────── */
-  const renderStep = (step) => {
-    switch (step) {
-      case 0: return (
-        <Fade in={!isAnimating} timeout={300}>
-          <Stack spacing={4}>
-            {/* General info */}
-            <Box>
-              <SectionHeader title="Informations générales" subtitle="Identifiez cette règle d'alerte" />
-              <Stack spacing={2.5}>
-                <TextField fullWidth label="Nom de la règle" placeholder="Ex: Alerte stock critique" value={formData.name} onChange={handleInputChange('name')} error={!!validationErrors.name} helperText={validationErrors.name} required sx={fieldSx(!!validationErrors.name)} />
-                <TextField fullWidth label="Description (optionnel)" placeholder="Décrivez l'objectif de cette règle..." multiline rows={3} value={formData.description} onChange={handleInputChange('description')} sx={fieldSx()} />
-              </Stack>
+  const steps = ["Informations", "Conditions", "Récapitulatif"];
+
+  return (
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          bgcolor: C.surface,
+          border: `1px solid ${C.border}`,
+          borderRadius: "16px",
+          overflow: "hidden",
+          position: "relative",
+        },
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          p: 3,
+          borderBottom: `1px solid ${C.border}`,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
+        <Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+            <BoltIcon sx={{ color: C.accent, fontSize: 24 }} />
+            <Typography sx={{ color: C.text, fontSize: "1.25rem", fontWeight: 700 }}>
+              Nouvelle Règle de Notification
+            </Typography>
+          </Box>
+          <Typography sx={{ color: C.textMuted, fontSize: "0.875rem" }}>
+            Configurez une règle pour recevoir des notifications automatiques
+          </Typography>
+          <Chip
+            label={`Rôle : ${userRole}`}
+            size="small"
+            sx={{ mt: 1, bgcolor: C.accentDim, color: C.accent }}
+          />
+        </Box>
+        <IconButton onClick={onClose} sx={{ color: C.textMuted }}>
+          <CloseIcon />
+        </IconButton>
+      </Box>
+
+      {/* Stepper */}
+      <Box sx={{ px: 3, pt: 3 }}>
+        <Stepper activeStep={activeStep}>
+          {steps.map((label) => (
+            <Step key={label}>
+              <StepLabel
+                sx={{
+                  "& .MuiStepLabel-label": { color: C.textMuted },
+                  "& .MuiStepLabel-label.Mui-active": { color: C.text },
+                  "& .MuiStepIcon-root": { color: C.border },
+                  "& .MuiStepIcon-root.Mui-active": { color: C.accent },
+                  "& .MuiStepIcon-root.Mui-completed": { color: C.success },
+                }}
+              >
+                {label}
+              </StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      </Box>
+
+      <DialogContent sx={{ p: 3, minHeight: 420 }}>
+        {/* ÉTAPE 0 — Informations */}
+        {activeStep === 0 && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Nom de la règle *"
+                value={formData.name}
+                onChange={(e) => handleChange("name", e.target.value)}
+                placeholder="Ex : Stock critique composants"
+                sx={inputSx}
+              />
+              <TextField
+                fullWidth
+                label="Description"
+                value={formData.description}
+                onChange={(e) => handleChange("description", e.target.value)}
+                placeholder="Description optionnelle"
+                sx={inputSx}
+              />
             </Box>
 
-            <Divider sx={{ borderColor: T.border }} />
+            {/* Categorie et Produit */}
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Catégorie</InputLabel>
+                <Select
+                  value={formData.category}
+                  onChange={(e) => handleChange("category", e.target.value)}
+                  label="Catégorie"
+                >
+                  <MenuItem value="">Toutes les catégories</MenuItem>
+                  {categories.map((cat) => (
+                    <MenuItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-            {/* Module */}
+              <FormControl fullWidth size="small" sx={inputSx}>
+                <InputLabel>Produit spécifique</InputLabel>
+                <Select
+                  value={formData.product}
+                  onChange={(e) => handleChange("product", e.target.value)}
+                  label="Produit spécifique"
+                  disabled={fetchingData}
+                >
+                  <MenuItem value="">Tous les produits</MenuItem>
+                  {products
+                    .filter(p => {
+                      // Normalize category ID from product
+                      let prodCatId = null;
+                      if (p.category !== null && p.category !== undefined) {
+                        prodCatId = (typeof p.category === 'object') ? p.category.id : p.category;
+                      }
+
+                      // Ensure comparison is safe (both strings or both numbers)
+                      const formCatId = formData.category;
+                      const isMatch = !formCatId || String(prodCatId) === String(formCatId);
+
+                      console.log("Filtering product:", p.name, "Product Category ID:", prodCatId, "Form Category ID:", formCatId, "Match:", isMatch);
+                      return isMatch;
+                    })
+                    .map((prod) => (
+                      <MenuItem key={prod.id} value={prod.id}>
+                        {prod.name} {prod.sku ? `(${prod.sku})` : ""}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Modules */}
             <Box>
-              <SectionHeader title="Module ERP" subtitle="Sélectionnez le module concerné par cette règle" />
-              <Grid container spacing={1.5}>
-                {modules.map(m => {
-                  const isLocked = Boolean(lockedModule) && m.value !== lockedModule;
+           
+
+              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 1.5 }}>
+                {MODULES.map((module) => {
+                  const Icon = module.icon;
+                  const isSelected = formData.module === module.value;
+                  const isAllowed = true; // Temporary fix/check components
+
                   return (
-                    <Grid item xs={12} sm={6} md={4} key={m.value}>
-                      <SelectCard
-                        selected={formData.module === m.value}
-                        accentColor={m.color}
-                        disabled={isLocked}
-                        onClick={() => {
-                          if (isLocked) return;
-                          setFormData({ ...formData, module: m.value });
-                          if (validationErrors.module) {
-                            setValidationErrors({ ...validationErrors, module: undefined });
-                          }
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Box sx={{ color: formData.module === m.value ? m.color : T.textMuted, display: 'flex', transition: 'color 0.18s' }}>
-                            {React.cloneElement(m.icon, { sx: { fontSize: 26 } })}
-                          </Box>
-                          <Typography sx={{ color: T.textPrimary, fontWeight: 600, fontSize: '0.875rem' }}>{m.label}</Typography>
-                        </Box>
-                      </SelectCard>
-                    </Grid>
+                    <Button
+                      key={module.value}
+                      onClick={() => handleModuleChange(module.value)}
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 1,
+                        py: 1.5,
+                        borderRadius: "10px",
+                        bgcolor: isSelected ? C.accentDim : "transparent",
+                        border: `1px solid ${isSelected ? C.accent : C.border}`,
+                        color: isSelected ? C.accent : C.textMuted,
+                        textTransform: "none",
+                        "&:hover": {
+                          bgcolor: C.accentDim,
+                          borderColor: C.accent,
+                        },
+                      }}
+                    >
+                      <Icon sx={{ fontSize: 24 }} />
+                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 500 }}>
+                        {module.label}
+                      </Typography>
+                    </Button>
                   );
                 })}
-              </Grid>
-              {validationErrors.module && (
-                <Typography variant="caption" sx={{ color: T.error, mt: 1.5, display: 'block' }}>{validationErrors.module}</Typography>
-              )}
-            </Box>
-
-            <Divider sx={{ borderColor: T.border }} />
-
-            {/* Severity */}
-            <Box>
-              <SectionHeader title="Niveau de priorité" subtitle="Définissez l'importance de cette alerte" />
-              <Grid container spacing={1.5}>
-                {severityOptions.map(s => (
-                  <Grid item xs={6} sm={3} key={s.value}>
-                    <SelectCard selected={formData.severity === s.value} accentColor={s.color} compact onClick={() => setFormData({ ...formData, severity: s.value })}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color, flexShrink: 0 }} />
-                        <Typography sx={{ color: s.color, fontWeight: 700, fontSize: '0.8125rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</Typography>
-                      </Box>
-                    </SelectCard>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          </Stack>
-        </Fade>
-      );
-
-      case 1: return (
-        <Fade in={!isAnimating} timeout={300}>
-          <Stack spacing={4}>
-            <Box>
-              <SectionHeader title="Type de condition" subtitle="Définissez le comportement qui déclenchera cette règle" />
-              <Grid container spacing={1.5}>
-                {conditionTypes.map(c => (
-                  <Grid item xs={12} sm={6} key={c.value}>
-                    <SelectCard selected={formData.conditionType === c.value} onClick={() => setFormData({ ...formData, conditionType: c.value })}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                        <Box sx={{ color: formData.conditionType === c.value ? T.accent : T.textMuted, mt: 0.25, flexShrink: 0 }}>{c.icon}</Box>
-                        <Box>
-                          <Typography sx={{ color: T.textPrimary, fontWeight: 600, fontSize: '0.875rem', mb: 0.5 }}>{c.label}</Typography>
-                          <Typography sx={{ color: T.textSecondary, fontSize: '0.8rem', lineHeight: 1.4 }}>{c.description}</Typography>
-                        </Box>
-                      </Box>
-                    </SelectCard>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-
-            <Divider sx={{ borderColor: T.border }} />
-
-            <Box>
-              <SectionHeader title={thresholdPanel[formData.conditionType]?.title || 'Configuration'} />
-              <Box sx={{ p: 3, pt: 3, bgcolor: T.surfaceAlt, borderRadius: 2, border: `1px solid ${T.border}` }}>
-                {formData.module === 'stock' && (
-                  <Grid container spacing={2.5} sx={{ mb: 2, alignItems: 'stretch' }}>
-                    <Grid item xs={12} md={6} sx={{ minWidth: 0, display: 'flex' }}>
-                      <FormControl fullWidth sx={{ mt: 0.5, width: '100%', minWidth: { xs: '100%', md: 300 }, flex: 1 }}>
-                        <InputLabel shrink sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Produit (optionnel)</InputLabel>
-                        <Select
-                          fullWidth
-                          value={formData.product}
-                          onChange={handleInputChange('product')}
-                          label="Produit (optionnel)"
-                          MenuProps={selectMenuProps}
-                          sx={{ ...selectSx, minWidth: { xs: '100%', md: 300 } }}
-                        >
-                          <MenuItem value="">
-                            <Typography sx={{ color: '#94a3b8' }}>Tous les produits disponibles</Typography>
-                          </MenuItem>
-                          {products.map((p) => (
-                            <MenuItem key={p.id} value={p.id}>
-                              <Typography sx={{ color: 'white' }}>{p.name} ({p.sku})</Typography>
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={6} sx={{ minWidth: 0, display: 'flex' }}>
-                      <FormControl fullWidth error={!!validationErrors.categories} sx={{ mt: 0.5, width: '100%', minWidth: { xs: '100%', md: 300 }, flex: 1 }}>
-                        <InputLabel shrink sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Catégories</InputLabel>
-                        <Select
-                          fullWidth
-                          multiple
-                          value={formData.categories}
-                          onChange={handleCategoriesChange}
-                          label="Catégories"
-                          MenuProps={selectMenuProps}
-                          sx={{ ...selectSx, minWidth: { xs: '100%', md: 300 } }}
-                          renderValue={(selected) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => (
-                                <Chip
-                                  key={value}
-                                  label={categories.find((c) => Number(c.id) === Number(value))?.name || value}
-                                  size="small"
-                                  sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: T.textPrimary }}
-                                />
-                              ))}
-                            </Box>
-                          )}
-                        >
-                          {categories.map((cat) => (
-                            <MenuItem key={cat.id} value={cat.id}>
-                              <Typography sx={{ color: 'white' }}>{cat.name}</Typography>
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {validationErrors.categories && (
-                          <Typography variant="caption" sx={{ color: T.error, mt: 0.75 }}>
-                            {validationErrors.categories}
-                          </Typography>
-                        )}
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                )}
-                {thresholdPanel[formData.conditionType]?.fields}
               </Box>
             </Box>
 
-           
-          
-          </Stack>
-        </Fade>
-      );
-
- 
-      default: return null;
-    }
-  };
-
-  /* ─── Render ─────────────────────────────────────────────── */
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
-
-  return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: T.bg }}>
-      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
-      
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          width: isMobile ? '100%' : 'calc(100% - 280px)',
-          minHeight: '100vh',
-          bgcolor: T.bg,
-        }}
-      >
-        <Box sx={{ py: 5 }}>
-          <Container maxWidth="lg">
-
-        {/* Menu hamburger mobile */}
-        {isMobile && (
-          <Box sx={{ mb: 3,display: 'flex', alignItems: 'center', gap: 2 }}>
-            <IconButton onClick={handleDrawerToggle} sx={{ color: T.accent }}>
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" sx={{ color: T.textPrimary }}>Nouvelle Alerte</Typography>
+            {/* Priorité */}
+            <Box>
+              <Typography sx={{ color: C.textSub, fontSize: "0.85rem", fontWeight: 500, mb: 1.5 }}>
+                Priorité *
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                {PRIORITIES.map((priority) => (
+                  <Chip
+                    key={priority.value}
+                    label={priority.label}
+                    onClick={() => handleChange("priority", priority.value)}
+                    sx={{
+                      bgcolor: formData.priority === priority.value ? priority.bgColor : C.surfaceHi,
+                      color: formData.priority === priority.value ? priority.color : C.textMuted,
+                      border: `1px solid ${formData.priority === priority.value ? priority.color : C.border}`,
+                      fontWeight: 600,
+                      "&:hover": {
+                        bgcolor: priority.bgColor,
+                        borderColor: priority.color,
+                      },
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
           </Box>
         )}
 
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 5 }}>
-          <Box sx={{ p: 1.25, bgcolor: 'rgba(59,130,246,0.1)', border: `1px solid rgba(59,130,246,0.2)`, borderRadius: 2, display: 'flex' }}>
-            <NotificationsIcon sx={{ color: T.accent, fontSize: 26 }} />
-          </Box>
-          <Box>
-            <Typography variant="h5" sx={{ color: T.textPrimary, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              Nouvelle règle d'alerte
-            </Typography>
-            <Typography variant="body2" sx={{ color: T.textSecondary, mt: 0.25, fontSize: '0.8125rem' }}>
-              Renseignez les informations de base et les conditions de declenchement
-            </Typography>
-          </Box>
-        </Box>
+        {/* ÉTAPE 1 — Conditions */}
+        {activeStep === 1 && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography sx={{ color: C.textSub, fontSize: "0.85rem", fontWeight: 500 }}>
+                Logique entre conditions :
+              </Typography>
+              {["AND", "OR"].map((logic) => (
+                <Chip
+                  key={logic}
+                  label={logic === "AND" ? "ET (AND)" : "OU (OR)"}
+                  onClick={() => handleChange("conditionLogic", logic)}
+                  sx={{
+                    bgcolor: formData.conditionLogic === logic ? C.accentDim : C.surfaceHi,
+                    color: formData.conditionLogic === logic ? C.accent : C.textMuted,
+                    border: `1px solid ${formData.conditionLogic === logic ? C.accent : C.border}`,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                />
+              ))}
+            </Box>
 
-        <Paper sx={{ p: 0, mb: 3.5, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 2, overflow: 'hidden' }}>
-          <LinearProgress
-            variant="determinate"
-            value={((activeStep + 1) / steps.length) * 100}
-            sx={{
-              height: 3,
-              bgcolor: 'rgba(255,255,255,0.05)',
-              '& .MuiLinearProgress-bar': { bgcolor: T.accent, transition: 'transform 0.4s ease' },
-            }}
-          />
-          <Box sx={{ display: 'flex', px: 4, py: 3, gap: 0 }}>
-            {steps.map((label, i) => {
-              const done = i < activeStep;
-              const active = i === activeStep;
-              return (
-                <React.Fragment key={label}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      bgcolor: done ? T.success : active ? T.accent : 'transparent',
-                      border: done || active ? 'none' : `1.5px solid ${T.border}`,
-                      transition: 'all 0.2s',
-                    }}>
-                      {done ? (
-                        <CheckCircleIcon sx={{ fontSize: 16, color: 'white' }} />
-                      ) : (
-                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: active ? 'white' : T.textMuted }}>{i + 1}</Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                      <Typography sx={{ fontSize: '0.8rem', fontWeight: active ? 700 : 500, color: active ? T.textPrimary : done ? T.success : T.textMuted, letterSpacing: '-0.01em' }}>
-                        {label}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  {i < steps.length - 1 && (
-                    <Box sx={{ flex: 1, height: 1, bgcolor: i < activeStep ? T.success : T.border, mx: 2, alignSelf: 'center', transition: 'background-color 0.3s' }} />
+            {formData.conditions.map((condition, index) => (
+              <Paper
+                key={index}
+                sx={{
+                  p: 2,
+                  bgcolor: C.surfaceHi,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: "10px",
+                  position: "relative",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+                  {index > 0 && (
+                    <Chip
+                      label={formData.conditionLogic}
+                      size="small"
+                      sx={{ bgcolor: C.accentDim, color: C.accent, fontWeight: 700, fontSize: "0.7rem" }}
+                    />
                   )}
-                </React.Fragment>
-              );
-            })}
-          </Box>
-        </Paper>
+                  <Typography sx={{ color: C.textMuted, fontSize: "0.7rem", fontWeight: 600 }}>
+                    Condition {index + 1}
+                  </Typography>
+                  {formData.conditions.length > 1 && (
+                    <IconButton
+                      size="small"
+                      onClick={() => removeCondition(index)}
+                      sx={{ color: C.danger, ml: "auto" }}
+                    >
+                      <DeleteIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  )}
+                </Box>
 
-       
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5 }}>
+                  <FormControl fullWidth size="small" sx={inputSx}>
+                    <InputLabel>Champ</InputLabel>
+                    <Select
+                      value={condition.field}
+                      onChange={(e) => handleConditionChange(index, "field", e.target.value)}
+                      label="Champ"
+                    >
+                      {getFieldsForModule(formData.module).map((field) => (
+                        <MenuItem key={field.value} value={field.value}>
+                          {field.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-        {/* Form content */}
-        <Paper sx={{ p: { xs: 3, md: 5 }, mb: 3, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 2, minHeight: 480 }}>
-          {renderStep(activeStep)}
-        </Paper>
+                  <FormControl fullWidth size="small" sx={inputSx}>
+                    <InputLabel>Opérateur</InputLabel>
+                    <Select
+                      value={condition.operator}
+                      onChange={(e) => handleConditionChange(index, "operator", e.target.value)}
+                      label="Opérateur"
+                    >
+                      {OPERATORS.map((op) => (
+                        <MenuItem key={op.value} value={op.value}>
+                          {op.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-        {/* Navigation footer */}
-        <Paper sx={{ p: 2.5, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <TextField
+                    size="small"
+                    label="Valeur"
+                    value={condition.value}
+                    onChange={(e) => handleConditionChange(index, "value", e.target.value)}
+                    placeholder="Ex : 10, HIGH, 3000"
+                    sx={inputSx}
+                  />
+                </Box>
+              </Paper>
+            ))}
 
-            {/* Back */}
             <Button
-              onClick={handleBack}
-              disabled={activeStep === 0}
-              startIcon={<ArrowBackIcon sx={{ fontSize: 18 }} />}
+              onClick={addCondition}
+              startIcon={<AddIcon />}
               sx={{
-                color: T.textSecondary, fontWeight: 600, fontSize: '0.8125rem', px: 2.5, py: 1, borderRadius: 1.5,
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.06)', color: T.textPrimary },
-                '&:disabled': { color: T.textMuted },
+                color: C.accent,
+                border: `1px dashed ${C.border}`,
+                borderRadius: "10px",
+                py: 1.5,
+                textTransform: "none",
+                "&:hover": { borderColor: C.accent, bgcolor: C.accentDim },
               }}
             >
-              Retour
+              Ajouter une condition
             </Button>
-
-            {/* Page indicator */}
-            <Typography sx={{ color: T.textSecondary, fontSize: '0.8125rem', fontWeight: 500, letterSpacing: '0.02em' }}>
-              Page{' '}
-              <Box component="span" sx={{ color: T.textPrimary, fontWeight: 700 }}>{activeStep + 1}</Box>
-              {' '}/{' '}
-              <Box component="span" sx={{ color: T.textPrimary, fontWeight: 700 }}>{steps.length}</Box>
-            </Typography>
-
-            {/* Next / Submit */}
-            {activeStep === steps.length - 1 ? (
-              <Button
-                variant="contained"
-                onClick={handleSubmit}
-                startIcon={<SaveIcon sx={{ fontSize: 18 }} />}
-                sx={{ bgcolor: T.success, color: 'white', px: 3.5, py: 1, fontWeight: 700, fontSize: '0.8125rem', borderRadius: 1.5, boxShadow: 'none', letterSpacing: '0.02em', '&:hover': { bgcolor: '#16a34a', boxShadow: '0 4px 12px rgba(34,197,94,0.3)' } }}
-              >
-                Créer la règle
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                endIcon={<ChevronRightIcon sx={{ fontSize: 18 }} />}
-                sx={{ bgcolor: T.accent, color: 'white', px: 3.5, py: 1, fontWeight: 700, fontSize: '0.8125rem', borderRadius: 1.5, boxShadow: 'none', letterSpacing: '0.02em', '&:hover': { bgcolor: T.accentDark, boxShadow: `0 4px 12px ${T.accentGlow}` } }}
-              >
-                Suivant
-              </Button>
-            )}
           </Box>
-        </Paper>
+        )}
 
-      </Container>
+        {/* ÉTAPE 2 — Récapitulatif */}
+        {activeStep === 2 && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Typography sx={{ color: C.textSub, fontSize: "0.85rem", fontWeight: 500 }}>
+              Récapitulatif de la règle
+            </Typography>
+            <Paper
+              sx={{
+                p: 2,
+                bgcolor: C.surfaceHi,
+                border: `1px solid ${C.border}`,
+                borderRadius: "10px",
+                fontFamily: "monospace",
+                fontSize: "0.82rem",
+                color: C.textSub,
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.8,
+              }}
+            >
+              {buildPreview()}
+            </Paper>
+          </Box>
+        )}
+
+        {errorMessage && (
+          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setErrorMessage("")}>
+            {errorMessage}
+          </Alert>
+        )}
+      </DialogContent>
+
+      {/* Footer */}
+      <DialogActions sx={{ p: 3, borderTop: `1px solid ${C.border}`, justifyContent: "space-between" }}>
+        <Button onClick={prevStep} disabled={activeStep === 0} sx={{ color: C.textMuted }}>
+          Précédent
+        </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button onClick={onClose} sx={{ color: C.textMuted }}>
+            Annuler
+          </Button>
+          {activeStep === steps.length - 1 ? (
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={loading}
+              sx={{ bgcolor: C.accent, "&:hover": { bgcolor: C.accentHi } }}
+            >
+              {loading ? <CircularProgress size={24} sx={{ color: "white" }} /> : "Créer la règle"}
+            </Button>
+          ) : (
+            <Button variant="contained" onClick={nextStep} sx={{ bgcolor: C.accent, "&:hover": { bgcolor: C.accentHi } }}>
+              Suivant
+            </Button>
+          )}
         </Box>
-      </Box>
+      </DialogActions>
 
-      {/* Snackbar */}
-      <Snackbar open={openSnackbar} autoHideDuration={4000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert onClose={() => setOpenSnackbar(false)} severity={snackbarSeverity} variant="filled" sx={{ width: '100%', borderRadius: 1.5, boxShadow: '0 4px 16px rgba(0,0,0,0.4)', fontSize: '0.875rem' }}>
-          {snackbarMessage}
-        </Alert>
+      {loading && <LinearProgress sx={{ position: "absolute", bottom: 0, left: 0, right: 0 }} />}
+
+      <Snackbar open={!!successMessage} autoHideDuration={3000} onClose={() => setSuccessMessage("")}>
+        <Alert severity="success">{successMessage}</Alert>
       </Snackbar>
-    </Box>
+    </Dialog>
   );
 };
 

@@ -22,7 +22,7 @@ export const alertService = {
     }
   },
 
-  // Créer une nouvelle alerte
+  // Créer une Nouvelle alerte
   async createAlert(alertData) {
     try {
       await new Promise(resolve => setTimeout(resolve, 500));

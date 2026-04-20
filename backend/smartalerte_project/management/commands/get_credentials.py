@@ -18,7 +18,7 @@ class Command(BaseCommand):
 
         output = f"""
 {'='*70}
-🔐 IDENTIFIANTS D'ACCÈS - SmartAlerte
+🔐 IDENTIFIANTS D'ACCÈS - SmartNotify
 {'='*70}
 
 📧 EMAIL/IDENTIFIANT:

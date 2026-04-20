@@ -34,18 +34,25 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Retourne les commandes selon le rôle de l'utilisateur"""
         user = self.request.user
-        
-        # Include items in the queryset for both admin and regular users
-        if user.is_staff or user.is_superuser:
+
+        if user.is_superuser:
+            # Le superadmin voit tout
+            return Order.objects.select_related('customer').prefetch_related('items', 'items__product').all()
+
+        if hasattr(user, 'role') and user.role == 'responsable_appro':
+            # L'admin appro voit uniquement les commandes confirmées
             return Order.objects.select_related('customer').prefetch_related(
-                'items', 
-                'items__product'
-            ).all()
-        
+                'items', 'items__product'
+            ).filter(status='confirmed')
+
+        if user.is_staff:
+            # Les autres membres du staff (non superadmin, non appro_admin) voient tout pour le moment
+            # TODO: Affiner cette logique si d'autres rôles staff sont ajoutés
+            return Order.objects.select_related('customer').prefetch_related('items', 'items__product').all()
+
         # Les utilisateurs normaux voient uniquement leurs propres commandes
         return Order.objects.select_related('customer').prefetch_related(
-            'items', 
-            'items__product'
+            'items', 'items__product'
         ).filter(customer=user)
     
     def get_serializer_class(self):
@@ -84,15 +91,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         for user in recipients.values():
             if user.id == order.customer.id:
-                title = "Commande creee avec succes"
+                title = "Commande créée avec succès"
                 message = (
-                    f"Votre commande #{order.id} a ete creee avec succes. "
+                    f"Votre commande #{order.id} a été créée avec succès. "
                     f"Montant total: {order_total}."
                 )
             else:
-                title = "Nouvelle commande creee"
+                title = "Nouvelle commande créée"
                 message = (
-                    f"Une nouvelle commande #{order.id} a ete creee par {customer_name}. "
+                    f"Une nouvelle commande #{order.id} a été créée par {customer_name}. "
                     f"Montant total: {order_total}."
                 )
 

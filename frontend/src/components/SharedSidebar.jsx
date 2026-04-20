@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAuthorizedMenus } from '../utils/moduleMenuConfig';
 import {
   Box,
   Typography,
@@ -13,7 +12,11 @@ import {
   BottomNavigationAction,
   Badge,
   Paper,
+  Switch,
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
+
+
 import {
   Dashboard as DashboardIcon,
   Settings as SettingsIcon,
@@ -30,25 +33,18 @@ import {
   AddBox as AddBoxIcon,
   List as ListIcon,
   BarChart as BarChartIcon,
-  LocalOffer as TagIcon,
   Category as CategoryIcon,
-  Layers as LayersIcon,
-  MoveToInbox as LotIcon,
-  Tune as AttributeIcon,
   Warehouse as WarehouseIcon,
   AddBusiness as AddWarehouseIcon,
-  RoomService as ServiceIcon,
-  PostAdd as NewServiceIcon,
   Menu as MenuIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Receipt as ReceiptIcon,
-  PrecisionManufacturing as ProductionIcon,
   ShoppingCart as ShoppingCartIcon,
-  Science as ScienceIcon,
-  WarningAmber as WarningAmberIcon,
-  BusinessCenter as BusinessCenterIcon,
-  Inventory2 as Inventory2Icon,
+  History as HistoryIcon,
+  Person as PersonIcon,
+  SwapHoriz as SwapHorizIcon,
+  LocalShipping as LocalShippingIcon, 
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
@@ -56,188 +52,449 @@ const desktopWidth = 280;
 const collapsedWidth = 80;
 const mobileWidth = 260;
 
-const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
+const SharedSidebar = ({ mobileOpen, onMobileClose, selectedMenu }) => {
   const { user, logout } = useAuth();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+
   
-  // État pour gérer le collapse du sidebar desktop
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const drawerWidth = isMobile ? mobileWidth : (sidebarCollapsed ? collapsedWidth : desktopWidth);
 
-  const isAdmin = user?.is_superuser || user?.is_staff;
+  // Aligné sur accounts.CustomUser.is_admin + rôle super_admin (API)
+  const isAdmin =
+    user?.is_superuser ||
+    user?.is_staff ||
+    user?.is_primary_admin ||
+    user?.role === 'super_admin';
+  const isStockManager = user?.role === 'responsable_stock';
+  const isApproManager = user?.role === 'responsable_appro';
+  const isProductionManager = user?.role === 'responsable_production';
+  const isFacturationManager = user?.role === 'responsable_facturation';
+  const isCommandesManager = user?.role === 'responsable_commandes';
   
-  // Vérifier si l'utilisateur a accès au panneau admin (super admin ou responsable de module)
-  const hasAdminPanelAccess = isAdmin || [
-    'responsable_stock',
-    'responsable_production',
-    'responsable_facturation',
-    'responsable_commandes'
-  ].includes(user?.role);
-  
-  const [openMenus, setOpenMenus] = useState({ stock: true, orders: false, fournisseurs: false, categories: false, facturation: false, 'matiere-premiere': false, 'ordre-production': false, 'produit-fini': false });
+  const [openMenus, setOpenMenus] = useState({ 
+    stock: false,
+    rawMaterials: false,
+    productionOrders: false,
+    finishedProducts: false,
+    categories: false, 
+    stockMovements: false,
+    fournisseurs: false, 
+    entrepots: false,
+    facturation: false,
+    orders: false,
+    employees: false,
+  });
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
-
   const toggleMenu = (id) => setOpenMenus(prev => ({ ...prev, [id]: !prev[id] }));
+  const handleNav = (path) => {
+    if (path) navigate(path);
+    if (isMobile && onMobileClose) onMobileClose();
+  };
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const handleNav = (path) => {
-    if (path) navigate(path);
-    if (isMobile && onMobileClose) onMobileClose();
-  };
+  // ============================================================
+  // CONFIGURATION DES MENUS POUR RESPONSABLE STOCK
+  // ============================================================
+ const stockManagerMenus = [
+  {
+    id: 'dashboard',
+    label: 'dashboard',  // ← changé
+    icon: <DashboardIcon />,
+    path: '/stock-dashboard',
+  },
+  {
+    id: 'alertes',
+    label: 'alertes',  // ← changé
+    icon: <FlashOnIcon />,
+    path: '/alerts',
+  },
+  {
+    id: 'notifications',
+    label: 'notifications',  // ← changé
+    icon: <NotificationsIcon />,
+    path: '/notifications',
+    badge: user?.unread_notifications || 0,
+  },
+  {
+    id: 'stock',
+    label: 'stock',  // ← changé
+    icon: <InventoryIcon />,
+    children: [
+      { id: 'stock-list', label: 'stock-list', icon: <ListIcon />, path: '/stock' },  // ← changé
+      { id: 'stock-new', label: 'stock-new', icon: <AddBoxIcon />, path: '/stock/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'stockMovements',
+    label: 'stockMovements',  // ← changé
+    icon: <SwapHorizIcon />,
+    children: [
+      { id: 'movements-list', label: 'movements-list', icon: <ListIcon />, path: '/stock-movements' },  // ← changé
+      { id: 'movements-new', label: 'movements-new', icon: <AddBoxIcon />, path: '/stock-movements/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'orders',
+    label: 'orders',  // ← changé
+    icon: <ShoppingCartIcon />,
+    children: [
+      { id: 'orders-list', label: 'orders-list', icon: <ListIcon />, path: '/orders' },  // ← changé
+      { id: 'orders-new', label: 'orders-new', icon: <AddBoxIcon />, path: '/orders/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'categories',
+    label: 'categories',  // ← changé
+    icon: <CategoryIcon />,
+    children: [
+      { id: 'categories-list', label: 'categories-list', icon: <ListIcon />, path: '/categories' },  // ← changé
+      { id: 'categories-new', label: 'categories-new', icon: <AddBoxIcon />, path: '/categories/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'fournisseurs',
+    label: 'fournisseurs',  // ← changé
+    icon: <PeopleIcon />,
+    children: [
+      { id: 'fournisseur-list', label: 'fournisseur-list', icon: <ListIcon />, path: '/fournisseur' },  // ← changé
+      { id: 'fournisseur-new', label: 'fournisseur-new', icon: <AddBoxIcon />, path: '/fournisseur/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'entrepots',
+    label: 'entrepots',  // ← changé
+    icon: <WarehouseIcon />,
+    children: [
+      { id: 'entrepot-list', label: 'entrepot-list', icon: <ListIcon />, path: '/entrepots' },  // ← changé
+      { id: 'entrepot-new', label: 'entrepot-new', icon: <AddWarehouseIcon />, path: '/entrepots/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'facturation',
+    label: 'facturation',  // ← changé
+    icon: <ReceiptIcon />,
+    children: [
+      { id: 'facturation-list', label: 'facturation-list', icon: <ListIcon />, path: '/facturation' },  // ← changé
+      { id: 'facturation-new', label: 'facturation-new', icon: <AddBoxIcon />, path: '/facturation/new' },  // ← changé
+    ],
+  },
+  {
+    id: 'modules',
+    label: 'modules',  // ← changé
+    icon: <StorageIcon />,
+    path: '/modulesERP',
+  },
+  {
+    id: 'history',
+    label: 'history',  // ← changé
+    icon: <HistoryIcon />,
+    path: '/history',
+  },
+  {
+    id: 'profile',
+    label: 'profile',  // ← changé
+    icon: <PersonIcon />,
+    path: '/profile',
+  },
+  {
+    id: 'settings',
+    label: 'settings',  // ← changé
+    icon: <SettingsIcon />,
+    path: '/settings',
+  },
+  {
+    id: 'deconnexion',
+    label: 'deconnexion',  // ← changé
+    icon: <LogoutIcon />,
+    action: handleLogout,
+  },
+];
 
-  const menuGroups = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <DashboardIcon />,
-      path: isAdmin ? '/admin_dashboard' : '/dashboard',
-    },
-    {
-      id: 'alertes',
-      label: isAdmin ? 'Mes Alertes' : 'Mes Alertes',
-      icon: <FlashOnIcon />,
-      path: isAdmin ? '/alert_rules' : '/alerts',
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: <NotificationsIcon />,
-      path: '/notifications',
-      badge: user?.unread_notifications || 0,
-    },
-    {
-      id: 'stock',
-      label: 'Stock',
-      icon: <InventoryIcon />,
-      children: [
-        { id: 'stock-new',   label: 'Nouveau produit',      icon: <AddBoxIcon />,    path: '/stock/new' },
-        { id: 'stock-list',  label: 'Liste',                icon: <ListIcon />,      path: '/stock' },
-         ],
-    },
-    
-    {
-      id: 'categories',
-      label: 'Categories',
-      icon: <CategoryIcon />,
-      children: [
-        { id: 'categories-new',   label: 'Nouvelle categorie', icon: <AddBoxIcon />, path: '/categories/new' },
-        { id: 'categories-list',  label: 'Liste',              icon: <ListIcon />,   path: '/categories' },
-      ],
-    },{
-      id: 'stock-movements',
-      label: 'Mouvements',
-      icon: <ListIcon />,
-      children: [
-        { id: 'movements-new', label: 'Nouveau mouvement', icon: <AddBoxIcon />, path: '/stock-movements/new' },
-        { id: 'movements-list', label: 'Liste', icon: <ListIcon />, path: '/stock-movements' },
-      ],
-    },
-     
-    {
-      id: 'fournisseurs',
-      label: 'fournisseurs',
-      icon: <PeopleIcon />,
-      children: [
-        { id: 'fournisseur-new',   label: 'Nouveau fournisseur',      icon: <AddBoxIcon />,    path: '/fournisseur/new' },
-        { id: 'fournisseur-list',  label: 'Liste',                icon: <ListIcon />,      path: '/fournisseur' },
-      ],
-    },
-    {
-      id: 'entrepots',
-      label: 'Entrepôts',
-      icon: <WarehouseIcon />,
-      children: [
-        { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
-        { id: 'entrepot-list',label: 'Liste',           icon: <ListIcon />,         path: '/entrepots' },
-      ],
-    },
-    {
-      id: 'orders',
-      label: 'Commandes',
-      icon: <ShoppingCartIcon />,
-      children: [
-        { id: 'orders-new',  label: 'Nouvelle commande',    icon: <AddBoxIcon />,    path: '/orders/new' },
-        { id: 'orders-list', label: 'Liste',                icon: <ListIcon />,      path: '/orders' },
-      ],
-    },
-    {
-      id: 'facturation',
-      label: 'Facturation',
-      icon: <ReceiptIcon />,
-      children: [
-        { id: 'facturation-new', label: 'Nouvelle facture', icon: <AddBoxIcon />, path: '/facturation/new' },
-        { id: 'facturation-list', label: 'Liste', icon: <ListIcon />, path: '/facturation' },
-      ],
-    },
+  // ============================================================
+// CONFIGURATION DES MENUS POUR RESPONSABLE APPROVISIONNEMENT
+// ============================================================
+// Dans SharedSidebar.js, modifiez la section approManagerMenus :
+
+const approManagerMenus = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: <DashboardIcon />,
+    path: '/appro-dashboard',
+  },
+   {
+    id: 'alertes',
+    label: 'Mes Alertes',
+    icon: <FlashOnIcon />,
+    path: '/alerts',
+  },
+   {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: <NotificationsIcon />,
+    path: '/notifications',
+    badge: user?.unread_notifications || 0,
+  },
+   {
+    id: 'stock',
+    label: 'Stock',
+    icon: <InventoryIcon />,
+    children: [
+      { id: 'stock-list', label: 'Liste des produits', icon: <ListIcon />, path: '/stock' },
+      { id: 'stock-new', label: 'Ajouter un produit', icon: <AddBoxIcon />, path: '/stock/new' },
+    ],
+  },
+  {
+    id: 'fournisseurs',
+    label: 'Fournisseurs',
+    icon: <PeopleIcon />,
+    path: '/appro/fournisseurs',  // ← Changement ici : utiliser la route spécifique
+  },
+  {
+    id: 'commandes_appro',
+    label: 'Commandes',
+    icon: <ShoppingCartIcon />,
+     path: '/appro/commandes',
+  },
+  {
+    id: 'livraisons',
+    label: 'Livraisons',
+    icon: <LocalShippingIcon />,
+    children: [
+      { id: 'appro-livraisons-list', label: 'Suivi des livraisons', icon: <ListIcon />, path: '/stock-movements' },  // Changé ici
+    ],
+  },
+   {
+    id: 'facturation',
+    label: 'Facturation',
+    icon: <ReceiptIcon />,
+    children: [
+      { id: 'facturation-list', label: 'Liste des factures', icon: <ListIcon />, path: '/facturation' },
+      { id: 'facturation-new', label: 'Nouvelle facture', icon: <AddBoxIcon />, path: '/facturation/new' },
+    ],
+  },
   
-   /* {
-      id: 'ordre-production',
-      label: 'Ordre de Production',
-      icon: <ProductionIcon />,
-      children: [
-        { id: 'ordre-new', label: 'Ajouter', icon: <AddBoxIcon />, path: '/ordre-production/new' },
-        { id: 'ordre-list', label: 'Liste', icon: <ListIcon />, path: '/ordre-production' },
-      ],
-    },
-    {
-      id: 'produit-fini',
-      label: 'Produit Fini',
-      icon: <InventoryIcon />,
-      children: [
-        { id: 'produit-new', label: 'Ajouter', icon: <AddBoxIcon />, path: '/produit-fini/new' },
-        { id: 'produit-list', label: 'Liste', icon: <ListIcon />, path: '/produit-fini' },
-      ],
-    },*/
-   
-    {
-      id: 'modules',
-      label: 'ERP Modules',
-      icon: <StorageIcon />,
-      path: '/modulesERP',
-    },
-    
-    ...(hasAdminPanelAccess ? [
-      { id: 'admin',   label: 'Admin Panel', icon: <AdminIcon />,     path: '/admin_panel' },
-    ] : []),
-    ...(isAdmin ? [
-      { id: 'Employes', label: 'Employés',     icon: <PersonAddIcon />, path: '/Employes_requests' },
-    ] : []),
-    { id: 'history',      label: 'Historique ',      icon: <CalendarIcon />, path: '/history' },
-    { id: 'profile',      label: 'Profile',       icon: <PeopleIcon />,  path: '/profile' },
-    { id: 'settings',     label: 'Paramètres',    icon: <SettingsIcon />,path: '/settings' },
-    { id: 'deconnexion',  label: 'Déconnexion',   icon: <LogoutIcon />,  action: handleLogout },
-  ];
+  {
+    id: 'history',
+    label: 'Historique',
+    icon: <HistoryIcon />,
+    path: '/history',
+  },
+  {
+    id: 'profile',
+    label: 'Mon Profil',
+    icon: <PersonIcon />,
+    path: '/profile',
+  },
+  {
+    id: 'settings',
+    label: 'Paramètres',
+    icon: <SettingsIcon />,
+    path: '/settings',
+  },
+  {
+    id: 'deconnexion',
+    label: 'Déconnexion',
+    icon: <LogoutIcon />,
+    action: handleLogout,
+  },
+];
+  // Configuration pour Admin (Admin Panel et Employés avant Historique)
+const adminMenus = [
+  // 1. Dashboard
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: <DashboardIcon />,
+    path: '/admin_dashboard',
+  },
+ 
+  // 4. Mes Alertes
+  {
+    id: 'alertes',
+    label: 'Mes Alertes',
+    icon: <FlashOnIcon />,
+    path: '/alerts',
+  },
+  // 5. Notifications
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: <NotificationsIcon />,
+    path: '/notifications',
+    badge: user?.unread_notifications || 0,
+  },
+  // 6. Stock
+  {
+    id: 'stock',
+    label: 'Stock',
+    icon: <InventoryIcon />,
+    children: [
+      { id: 'stock-list', label: 'Liste des produits', icon: <ListIcon />, path: '/stock' },
+      { id: 'stock-new', label: 'Ajouter un produit', icon: <AddBoxIcon />, path: '/stock/new' },
+    ],
+  },
+  // 7. Mouvements
+  {
+    id: 'stockMovements',
+    label: 'Mouvements',
+    icon: <SwapHorizIcon />,
+    children: [
+      { id: 'movements-list', label: 'Liste des mouvements', icon: <ListIcon />, path: '/stock-movements' },
+      { id: 'movements-new', label: 'Nouveau mouvement', icon: <AddBoxIcon />, path: '/stock-movements/new' },
+    ],
+  },
+  // 8. Commandes
+  {
+    id: 'orders',
+    label: 'Commandes',
+    icon: <ShoppingCartIcon />,
+    children: [
+      { id: 'orders-list', label: 'Liste des commandes', icon: <ListIcon />, path: '/orders' },
+      { id: 'orders-new', label: 'Nouvelle commande', icon: <AddBoxIcon />, path: '/orders/new' },
+    ],
+  },
+  // 9. Catégories
+  {
+    id: 'categories',
+    label: 'Catégories',
+    icon: <CategoryIcon />,
+    children: [
+      { id: 'categories-list', label: 'Liste des catégories', icon: <ListIcon />, path: '/categories' },
+      { id: 'categories-new', label: 'Nouvelle catégorie', icon: <AddBoxIcon />, path: '/categories/new' },
+    ],
+  },
+  // 10. Fournisseurs
+  {
+    id: 'fournisseurs',
+    label: 'Fournisseurs',
+    icon: <PeopleIcon />,
+    children: [
+      { id: 'fournisseur-list', label: 'Liste des fournisseurs', icon: <ListIcon />, path: '/fournisseur' },
+      { id: 'fournisseur-new', label: 'Nouveau fournisseur', icon: <AddBoxIcon />, path: '/fournisseur/new' },
+    ],
+  },
+  // 11. Entrepôts
+  {
+    id: 'entrepots',
+    label: 'Entrepôts',
+    icon: <WarehouseIcon />,
+    children: [
+      { id: 'entrepot-list', label: 'Liste des entrepôts', icon: <ListIcon />, path: '/entrepots' },
+      { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
+    ],
+  },
+  // 12. Facturation
+  {
+    id: 'facturation',
+    label: 'Facturation',
+    icon: <ReceiptIcon />,
+    children: [
+      { id: 'facturation-list', label: 'Liste des factures', icon: <ListIcon />, path: '/facturation' },
+      { id: 'facturation-new', label: 'Nouvelle facture', icon: <AddBoxIcon />, path: '/facturation/new' },
+    ],
+  },
+  // 13. ERP Modules
+  {
+    id: 'modules',
+    label: 'ERP Modules',
+    icon: <StorageIcon />,
+    path: '/modulesERP',
+  },
+   // 2. Admin Panel (juste après Dashboard)
+   {
+    id: 'admin_panel',
+    label: 'Admin Panel',
+    icon: <AdminIcon />,
+    path: '/admin_panel',
+  },
+  // 3. Employés (avec seulement Demandes et Ajouter, PAS Liste)
+  {
+    id: 'employees',
+    label: 'Employés',
+    icon: <PeopleIcon />,
+    children: [
+      { id: 'employees-requests', label: 'Demandes des employés', icon: <PersonAddIcon />, path: '/employes_requests' },
+      { id: 'employees-new', label: 'Ajouter employé', icon: <AddBoxIcon />, path: '/employees/new' },
+    ],
+  },
+  // 14. Historique
+  {
+    id: 'history',
+    label: 'Historique',
+    icon: <HistoryIcon />,
+    path: '/history',
+  },
+  // 15. Mon Profil
+  {
+    id: 'profile',
+    label: 'Mon Profil',
+    icon: <PersonIcon />,
+    path: '/profile',
+  },
+  // 16. Paramètres
+  {
+    id: 'settings',
+    label: 'Paramètres',
+    icon: <SettingsIcon />,
+    path: '/settings',
+  },
+  // 17. Déconnexion
+  {
+    id: 'deconnexion',
+    label: 'Déconnexion',
+    icon: <LogoutIcon />,
+    action: handleLogout,
+  },
+];
 
-  // Filtrer les menus en fonction du module et rôle de l'utilisateur
-  const authorizedMenuIds = useMemo(() => getAuthorizedMenus(user), [user]);
-  const filteredMenuGroups = useMemo(() => {
-    return menuGroups.filter(group => authorizedMenuIds.includes(group.id));
-  }, [menuGroups, authorizedMenuIds]);
+  // Configuration pour autres responsables
+  const otherMenus = stockManagerMenus.map(m => {
+    if (m.id === 'dashboard') {
+      return { ...m, path: '/dashboard' };
+    }
+    return m;
+  });
+
+  // Sélectionner les menus selon le rôle
+  const menuGroups = useMemo(() => {
+    if (isAdmin) return adminMenus;
+    if (isStockManager) return stockManagerMenus;
+    if (isApproManager) return approManagerMenus;
+    return otherMenus;
+  }, [isAdmin, isStockManager, isApproManager]);
+
+  useEffect(() => {
+    console.log('=== DEBUG SIDEBAR ===');
+    console.log('User:', user);
+    console.log('user?.role:', user?.role);
+    console.log('isStockManager:', isStockManager);
+    console.log('isApproManager:', isApproManager);
+    console.log('isAdmin:', isAdmin);
+    console.log('Menu groups length:', menuGroups.length);
+    console.log('Menu IDs:', menuGroups.map((g) => g.id));
+  }, [user, isStockManager, isAdmin, menuGroups, isApproManager]);
 
   const parsePathWithQuery = (path) => {
     const [pathname, query = ''] = String(path || '').split('?');
-    return {
-      pathname,
-      query: query ? `?${query}` : '',
-    };
+    return { pathname, query: query ? `?${query}` : '' };
   };
 
   const isChildActive = (path) => {
     const { pathname, query } = parsePathWithQuery(path);
     if (location.pathname !== pathname) return false;
-
-    if (!query) {
-      return !location.search || location.search === '?materialType=all';
-    }
-
+    if (!query) return !location.search || location.search === '?materialType=all';
     return location.search === query;
   };
 
@@ -249,21 +506,25 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     if (group.children) {
       return group.children.some((c) => {
         const { pathname, query } = parsePathWithQuery(c.path);
-        if (!query) {
-          return location.pathname === pathname || location.pathname.startsWith(pathname + '/');
-        }
+        if (!query) return location.pathname === pathname || location.pathname.startsWith(pathname + '/');
         return location.pathname === pathname && location.search === query;
       });
     }
     return false;
   };
 
-  // Bottom nav items for mobile (only main items)
-  const bottomNavItems = isAdmin ? [
-    { label: 'Dashboard', icon: <DashboardIcon />, path: '/admin_dashboard' },
+  // Bottom nav items for mobile
+  const bottomNavItems = isStockManager ? [
+    { label: 'Dashboard', icon: <DashboardIcon />, path: '/stock-dashboard' },
     { label: 'Stock', icon: <InventoryIcon />, path: '/stock' },
-    { label: 'Alertes', icon: <FlashOnIcon />, path: '/alert_rules' },
+    { label: 'Alertes', icon: <FlashOnIcon />, path: '/alerts' },
     { label: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
+    { label: 'Plus', icon: <MenuIcon />, openDrawer: true },
+  ] : (isAdmin ? [
+    { label: 'Dashboard', icon: <DashboardIcon />, path: '/admin_dashboard' },
+    { label: 'Admin', icon: <AdminIcon />, path: '/admin_panel' },
+    { label: 'Employés', icon: <PeopleIcon />, path: '/employees' },
+    { label: 'Alertes', icon: <FlashOnIcon />, path: '/alerts' },
     { label: 'Plus', icon: <MenuIcon />, openDrawer: true },
   ] : [
     { label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
@@ -271,28 +532,20 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     { label: 'Alertes', icon: <FlashOnIcon />, path: '/alerts' },
     { label: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
     { label: 'Plus', icon: <MenuIcon />, openDrawer: true },
-  ];
+  ]);
 
   const [bottomNavValue, setBottomNavValue] = useState(() => {
     const activeItem = bottomNavItems.findIndex(item => item.path && location.pathname.startsWith(item.path));
     return activeItem !== -1 ? activeItem : 0;
   });
 
-  const [drawerOpenFromBottomNav, setDrawerOpenFromBottomNav] = useState(false);
-
   const handleBottomNavChange = (event, newValue) => {
     setBottomNavValue(newValue);
     const item = bottomNavItems[newValue];
     if (item.openDrawer) {
-      // Toggle drawer
-      setDrawerOpenFromBottomNav(!mobileOpen);
-      if (onMobileClose) {
-        onMobileClose(); // This will toggle the drawer state in parent
-      }
+      if (onMobileClose) onMobileClose();
     } else if (item.path) {
       navigate(item.path);
-    } else if (item.action) {
-      item.action();
     }
   };
 
@@ -309,23 +562,23 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
               SmartNotify
             </Typography>
             <Typography variant="caption" sx={{ color: '#64748b', fontSize: isMobile ? '0.6rem' : '0.7rem', letterSpacing: '0.5px' }}>
-              {isAdmin ? 'ERP NOTIFICATIONS' : 'USER PANEL'}
+              {isAdmin ? t('adminMode') : isStockManager ? t('stockMode') : isApproManager ? t('approMode') : t('userMode')}
             </Typography>
+          
+
           </Box>
         )}
       </Box>
 
       {/* Menu */}
       <Box sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 2, px: isMobile ? 1.5 : 2, scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' }, position: 'relative', zIndex: 1 }}>
-        {filteredMenuGroups.map((group) => {
+        {menuGroups.map((group) => {
           const active = isGroupActive(group);
           const isOpen = openMenus[group.id];
           const hasChildren = Boolean(group.children?.length);
 
           return (
             <Box key={group.id} sx={{ mb: 0.5 }}>
-
-              {/* Parent row */}
               <Box
                 onClick={() => {
                   if (hasChildren) toggleMenu(group.id);
@@ -342,7 +595,6 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 1.5 }}>
-                  {/* Icon */}
                   <Box sx={{
                     color: active ? '#3b82f6' : isOpen && hasChildren ? '#3b82f6' : '#64748b',
                     display: 'flex', alignItems: 'center',
@@ -350,27 +602,24 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                   }}>
                     {group.icon}
                   </Box>
-                  {/* Label — same font as original */}
                   {(!sidebarCollapsed || isMobile) && (
                     <Typography sx={{
                       fontSize: isMobile ? '0.8rem' : '0.9rem',
                       fontWeight: active || (hasChildren && isOpen) ? 600 : 400,
                       color: active ? '#60a5fa' : hasChildren && isOpen ? '#60a5fa' : '#94a3b8',
                     }}>
-                      {group.label}
+                      {t(group.label)}
                     </Typography>
                   )}
                 </Box>
 
                 {(!sidebarCollapsed || isMobile) && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {/* Badge */}
                     {group.badge > 0 && (
                       <Box sx={{ bgcolor: '#ef4444', color: 'white', fontSize: isMobile ? '0.6rem' : '0.7rem', fontWeight: 600, px: 0.75, py: 0.25, borderRadius: 2, minWidth: isMobile ? 16 : 20, textAlign: 'center' }}>
                         {group.badge}
                       </Box>
                     )}
-                    {/* Chevron */}
                     {hasChildren && (
                       <Box sx={{
                         color: '#64748b', display: 'flex',
@@ -383,13 +632,11 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                     )}
                   </Box>
                 )}
-                {/* Tooltip for collapsed state */}
                 {sidebarCollapsed && !isMobile && group.badge > 0 && (
                   <Box sx={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, bgcolor: '#ef4444', borderRadius: '50%', boxShadow: '0 0 6px rgba(239,68,68,0.6)' }} />
                 )}
               </Box>
 
-              {/* Children dropdown */}
               {hasChildren && !sidebarCollapsed && (
                 <Collapse in={isOpen} timeout={200}>
                   <Box sx={{ ml: isMobile ? 1 : 2, pl: isMobile ? 1 : 1.5, borderLeft: '1px solid rgba(59,130,246,0.18)', mt: 0.3, mb: 0.5 }}>
@@ -410,13 +657,12 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                           <Box sx={{ color: childActive ? '#3b82f6' : '#64748b', display: 'flex', '& svg': { fontSize: isMobile ? 13 : 15 } }}>
                             {child.icon}
                           </Box>
-                          {/* Child label — same size as original item text */}
                           <Typography sx={{
                             fontSize: isMobile ? '0.75rem' : '0.875rem',
                             fontWeight: childActive ? 600 : 400,
                             color: childActive ? '#60a5fa' : '#94a3b8',
                           }}>
-                            {child.label}
+                            {t(child.label)}
                           </Typography>
                         </Box>
                       );
@@ -424,7 +670,6 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                   </Box>
                 </Collapse>
               )}
-
             </Box>
           );
         })}
@@ -436,13 +681,42 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0.75 : 1 }}>
             <Box sx={{ width: isMobile ? 6 : 8, height: isMobile ? 6 : 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)', flexShrink: 0 }} />
             <Box>
-              <Typography variant="caption" sx={{ color: '#-', fontWeight: 600, display: 'block', fontSize: isMobile ? '0.7rem' : '0.85rem' }}>
-                System Active
+              <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', fontSize: isMobile ? '0.7rem' : '0.85rem', color: '#10b981' }}>
+{t('System Active')}
               </Typography>
               <Typography variant="caption" sx={{ color: '#64748b', fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
-                {isAdmin ? 'Admin mode enabled' : 'User mode'}
+                {isStockManager ? t('stockMode') : isAdmin ? t('adminMode') : isApproManager ? t('approMode') : t('userMode')}
               </Typography>
             </Box>
+              {(!sidebarCollapsed || isMobile) && (
+              <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box
+                  onClick={() => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr')}
+                  sx={{
+                    p: 0.5,
+                    borderRadius: 1,
+                    cursor: 'pointer',
+                    bgcolor: 'rgba(59,130,246,0.15)',
+                    border: '1px solid rgba(59,130,246,0.3)',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      bgcolor: 'rgba(59,130,246,0.25)',
+                      transform: 'scale(1.05)'
+                    },
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 32,
+                    height: 32
+                  }}
+                  title={i18n.language === 'fr' ? t('fr') : t('en')}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#3b82f6' }}>
+                    {i18n.language === 'fr' ? 'FR' : 'EN'}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
           </Box>
         </Box>
       )}
@@ -451,7 +725,6 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)' }} />
         </Box>
       )}
-
     </Box>
   );
 
@@ -471,7 +744,6 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
             {drawerContent}
           </Box>
           
-          {/* Toggle button */}
           <Box
             onClick={toggleSidebar}
             sx={{
@@ -503,7 +775,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         </Box>
       )}
 
-      {/* Mobile Drawer (for secondary items) */}
+      {/* Mobile Drawer */}
       {isMobile && (
         <Drawer variant="temporary" open={mobileOpen} onClose={onMobileClose}
           sx={{
@@ -522,7 +794,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         </Drawer>
       )}
 
-      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation */}
       {isMobile && (
         <Paper
           sx={{

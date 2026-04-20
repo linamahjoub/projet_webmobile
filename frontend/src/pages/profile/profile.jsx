@@ -17,7 +17,6 @@ import {
   TextField,
   FormControlLabel,
   Switch,
-  MenuItem,
   Snackbar,
   Alert,
   Dialog,
@@ -25,15 +24,11 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
-  Divider,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Person as PersonIcon,
   Email as EmailIcon,
-  Phone as PhoneIcon,
-  Home as HomeIcon,
-  Badge as BadgeIcon,
   CalendarToday as CalendarIcon,
   Verified as VerifiedIcon,
   Lock as LockIcon,
@@ -44,7 +39,6 @@ import {
 } from '@mui/icons-material';
 import SharedSidebar from '../../components/SharedSidebar';
 
-// Options de rôles disponibles
 const roleOptions = [
   { value: 'responsable_stock', label: 'Responsable Stock' },
   { value: 'commercial', label: 'Commercial' },
@@ -54,7 +48,6 @@ const roleOptions = [
   { value: 'fournisseur', label: 'Fournisseur' },
 ];
 
-// Fonction pour obtenir le libellé du rôle
 const getRoleLabel = (roleValue) => {
   const role = roleOptions.find(opt => opt.value === roleValue);
   return role ? role.label : (roleValue || 'Non renseigné');
@@ -76,38 +69,37 @@ const Profile = () => {
     telegram_chat_id: '',
     company: '',
   });
-  
+
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  
+
   const [notificationPrefs, setNotificationPrefs] = useState({
     email: true,
     telegram: false,
-    push: true,
-    frequency: 'realtime', // ✅ Déjà corrigé
   });
-  
+
   const [securityPrefs, setSecurityPrefs] = useState({
     twoFactor: false,
   });
-  
+
   const [recentActivity, setRecentActivity] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
-  
-  // États pour la vérification OTP
+
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
-  const [otpChannel, setOtpChannel] = useState(null);
+  const [currentVerificationChannel, setCurrentVerificationChannel] = useState(null);
   const [otpCode, setOtpCode] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [pendingChannelState, setPendingChannelState] = useState(false);
   const [verificationInProgress, setVerificationInProgress] = useState(false);
-  
+  const [pendingOtps, setPendingOtps] = useState({
+    email: false,
+    telegram: false,
+  });
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     severity: 'success',
@@ -154,7 +146,6 @@ const Profile = () => {
   const fetchChannelPreferences = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      // ✅ AJOUT: credentials: 'include' pour les cookies de session
       const res = await fetch('http://localhost:8000/api/notifications/channel_preferences/', {
         headers: { Authorization: `Bearer ${token}` },
         credentials: 'include',
@@ -164,8 +155,6 @@ const Profile = () => {
         setNotificationPrefs({
           email: data.email_enabled ?? true,
           telegram: data.telegram_enabled ?? false,
-          push: data.in_app_enabled ?? true,
-          frequency: data.schedule || 'realtime',
         });
       }
     } catch (error) {
@@ -182,7 +171,6 @@ const Profile = () => {
       try {
         setLoadingActivity(true);
         const token = localStorage.getItem('access_token');
-        // ✅ AJOUT: credentials: 'include' pour les cookies de session
         const response = await fetch('http://localhost:8000/api/activity/recent/?limit=6', {
           headers: {
             Authorization: token ? `Bearer ${token}` : undefined,
@@ -207,17 +195,9 @@ const Profile = () => {
     fetchRecentActivity();
   }, [user, isAdmin]);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleEditProfile = () => {
-    navigate('/edit_profile');
-  };
-
-  const handleChangePassword = () => {
-    navigate('/change-password');
-  };
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+  const handleEditProfile = () => navigate('/edit_profile');
+  const handleChangePassword = () => navigate('/change-password');
 
   const showFeedback = (severity, message) => {
     setSnackbar({ open: true, severity, message });
@@ -234,20 +214,23 @@ const Profile = () => {
     }
   };
 
-  // Fonction pour envoyer le code OTP
   const sendOTP = async (channel, destination) => {
     setOtpLoading(true);
     try {
       const token = localStorage.getItem('access_token');
-      const endpoint = channel === 'email'
-        ? 'http://localhost:8000/api/notifications/send_otp_email/'
-        : 'http://localhost:8000/api/notifications/send_otp_telegram/';
-      
-      const payload = { 
-        [channel === 'email' ? 'email' : 'telegram_username']: destination 
+      if (!token) {
+        showFeedback('error', "Token d'authentification manquant. Veuillez vous reconnecter.");
+        return false;
+      }
+      const endpoint =
+        channel === 'email'
+          ? 'http://localhost:8000/api/notifications/send_otp_email/'
+          : 'http://localhost:8000/api/notifications/send_otp_telegram/';
+
+      const payload = {
+        [channel === 'email' ? 'email' : 'telegram_username']: destination,
       };
-      
-      // ✅ AJOUT: credentials: 'include' pour les cookies de session
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -257,177 +240,155 @@ const Profile = () => {
         body: JSON.stringify(payload),
         credentials: 'include',
       });
-      
       const data = await response.json();
-      
       if (response.ok) {
-        setOtpSent(true);
         showFeedback('success', `Code OTP envoyé à votre ${channel === 'email' ? 'email' : 'Telegram'}`);
+        setPendingOtps(prev => ({ ...prev, [channel]: true }));
+        return true;
       } else {
-        showFeedback('error', data.error || `Erreur lors de l'envoi du code OTP ${channel === 'email' ? 'par email' : 'Telegram'}`);
+        showFeedback('error', data.error || data.detail || `Erreur ${response.status}`);
+        setPendingOtps(prev => ({ ...prev, [channel]: false }));
         setOtpDialogOpen(false);
-        setOtpChannel(null);
+        setCurrentVerificationChannel(null);
+        return false;
       }
     } catch (error) {
-      console.error('Erreur envoi OTP:', error);
-      showFeedback('error', `Erreur lors de l'envoi du code OTP ${channel === 'email' ? 'par email' : 'Telegram'}`);
+      showFeedback('error', `Erreur réseau: ${error.message}`);
       setOtpDialogOpen(false);
-      setOtpChannel(null);
+      setCurrentVerificationChannel(null);
+      setPendingOtps({ email: false, telegram: false });
+      return false;
     } finally {
       setOtpLoading(false);
     }
   };
 
-  // Fonction pour vérifier le code OTP
   const verifyOTP = async () => {
     if (!otpCode || otpCode.length < 6) {
       showFeedback('error', 'Veuillez entrer un code OTP valide (6 chiffres)');
       return;
     }
-    
     setVerificationInProgress(true);
     try {
       const token = localStorage.getItem('access_token');
-      const endpoint = otpChannel === 'email'
-        ? 'http://localhost:8000/api/notifications/verify_otp_email/'
-        : 'http://localhost:8000/api/notifications/verify_otp_telegram/';
-      
-      const payload = { otp_code: otpCode };
-      
-      // ✅ AJOUT: credentials: 'include' pour les cookies de session
+      const endpoint =
+        currentVerificationChannel === 'email'
+          ? 'http://localhost:8000/api/notifications/verify_otp_email/'
+          : 'http://localhost:8000/api/notifications/verify_otp_telegram/';
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ otp_code: otpCode }),
         credentials: 'include',
       });
-      
       const data = await response.json();
-      
+
       if (response.ok && data.verified) {
         const updatedPrefs = {
           ...notificationPrefs,
-          [otpChannel]: pendingChannelState,
+          [currentVerificationChannel]: true,
         };
         setNotificationPrefs(updatedPrefs);
         await saveNotificationPreferencesToServer(updatedPrefs);
         localStorage.setItem(notificationStorageKey, JSON.stringify(updatedPrefs));
-        showFeedback('success', `${otpChannel === 'email' ? 'Email' : 'Telegram'} activé avec succès`);
+        showFeedback(
+          'success',
+          `${currentVerificationChannel === 'email' ? 'Email' : 'Telegram'} activé avec succès`
+        );
+        setPendingOtps(prev => ({ ...prev, [currentVerificationChannel]: false }));
         setOtpDialogOpen(false);
         setOtpCode('');
-        setOtpSent(false);
-        setOtpChannel(null);
+        setCurrentVerificationChannel(null);
       } else {
         showFeedback('error', data.error || 'Code OTP invalide');
       }
     } catch (error) {
-      console.error('Erreur vérification OTP:', error);
       showFeedback('error', 'Erreur lors de la vérification du code');
     } finally {
       setVerificationInProgress(false);
     }
   };
 
- const saveNotificationPreferencesToServer = async (prefs) => {
-  console.log('📤 Envoi au serveur...');
-  console.log('   email_enabled:', prefs.email);
-  console.log('   telegram_enabled:', prefs.telegram);
-  console.log('   frequency:', prefs.frequency);
-  
-  const token = localStorage.getItem('access_token');
-  console.log('🔑 Token:', token ? '✓ Présent' : '✗ Manquant');
-  
-  if (!token) {
-    throw new Error('Token manquant');
-  }
-  
-  const response = await fetch('http://localhost:8000/api/notifications/channel_preferences/', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      email_enabled: prefs.email,
-      telegram_enabled: prefs.telegram,
-      in_app_enabled: prefs.push,
-      schedule: prefs.frequency,
-    }),
-    credentials: 'include',
-  });
-  
-  console.log('📡 Réponse:', response.status, response.statusText);
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('❌ Erreur serveur:', errorData);
-    throw new Error(`Erreur ${response.status}: ${JSON.stringify(errorData)}`);
-  }
-  
-  const data = await response.json();
-  console.log('✅ Réponse serveur:', data);
-  return data;
-};
-  // Gestionnaire pour le switch Telegram
-  const handleTelegramToggle = async (checked) => {
-    if (checked) {
-      if (!profileForm.telegram_username) {
-        showFeedback('error', 'Veuillez d\'abord configurer votre nom d\'utilisateur Telegram dans les informations générales');
-        return;
-      }
-      setOtpChannel('telegram');
-      setPendingChannelState(true);
-      setOtpDialogOpen(true);
-      setOtpSent(false);
-      setOtpCode('');
-      await sendOTP('telegram', profileForm.telegram_username);
-    } else {
-      const updatedPrefs = { ...notificationPrefs, telegram: false };
-      setNotificationPrefs(updatedPrefs);
-      await saveNotificationPreferencesToServer(updatedPrefs);
-      localStorage.setItem(notificationStorageKey, JSON.stringify(updatedPrefs));
-      showFeedback('success', 'Telegram désactivé');
+  const saveNotificationPreferencesToServer = async (prefs) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) throw new Error('Token manquant');
+    const response = await fetch('http://localhost:8000/api/notifications/channel_preferences/', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        email_enabled: prefs.email,
+        telegram_enabled: prefs.telegram,
+      }),
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Erreur ${response.status}: ${JSON.stringify(errorData)}`);
     }
+    return response.json();
   };
 
-  // Gestionnaire pour le switch Email
   const handleEmailToggle = async (checked) => {
     if (checked && !notificationPrefs.email) {
       if (!user?.email) {
         showFeedback('error', 'Aucune adresse email configurée pour votre compte');
         return;
       }
-      setOtpChannel('email');
-      setPendingChannelState(true);
-      setOtpDialogOpen(true);
-      setOtpSent(false);
-      setOtpCode('');
-      await sendOTP('email', user.email);
+      setCurrentVerificationChannel('email');
+      const otpSent = await sendOTP('email', user.email);
+      if (otpSent) {
+        setOtpDialogOpen(true);
+        setOtpCode('');
+      }
     } else if (!checked && notificationPrefs.email) {
       const updatedPrefs = { ...notificationPrefs, email: false };
       setNotificationPrefs(updatedPrefs);
       await saveNotificationPreferencesToServer(updatedPrefs);
       localStorage.setItem(notificationStorageKey, JSON.stringify(updatedPrefs));
-      showFeedback('success', 'Email désactivé');
+      showFeedback('success', 'Envoi OTP par email désactivé');
     }
   };
-const handleSaveNotificationPrefs = async () => {
-  console.log('🔵 handleSaveNotificationPrefs appelé !');
-  console.log('📦 notificationPrefs actuelles:', notificationPrefs);
-  
-  try {
-    await saveNotificationPreferencesToServer(notificationPrefs);
-    localStorage.setItem(notificationStorageKey, JSON.stringify(notificationPrefs));
-    showFeedback('success', 'Préférences de notification enregistrées');
-    console.log('✅ Sauvegarde terminée avec succès');
-  } catch (error) {
-    console.error('❌ Erreur dans handleSaveNotificationPrefs:', error);
-    showFeedback('error', 'Erreur lors de la sauvegarde');
-  }
-};
+
+  const handleTelegramToggle = async (checked) => {
+    if (checked && !notificationPrefs.telegram) {
+      if (!profileForm.telegram_username) {
+        showFeedback(
+          'error',
+          "Veuillez d'abord configurer votre nom d'utilisateur Telegram dans les informations générales"
+        );
+        return;
+      }
+      setCurrentVerificationChannel('telegram');
+      const otpSent = await sendOTP('telegram', profileForm.telegram_username);
+      if (otpSent) {
+        setOtpDialogOpen(true);
+        setOtpCode('');
+      }
+    } else if (!checked && notificationPrefs.telegram) {
+      const updatedPrefs = { ...notificationPrefs, telegram: false };
+      setNotificationPrefs(updatedPrefs);
+      await saveNotificationPreferencesToServer(updatedPrefs);
+      localStorage.setItem(notificationStorageKey, JSON.stringify(updatedPrefs));
+      showFeedback('success', 'Envoi OTP par Telegram désactivé');
+    }
+  };
+
+  const handleSaveNotificationPrefs = async () => {
+    try {
+      await saveNotificationPreferencesToServer(notificationPrefs);
+      localStorage.setItem(notificationStorageKey, JSON.stringify(notificationPrefs));
+      showFeedback('success', "Préférences d'envoi OTP enregistrées");
+    } catch (error) {
+      showFeedback('error', 'Erreur lors de la sauvegarde');
+    }
+  };
 
   const handleSaveSecurityPrefs = () => {
     localStorage.setItem(securityStorageKey, JSON.stringify(securityPrefs));
@@ -460,16 +421,8 @@ const handleSaveNotificationPrefs = async () => {
 
   if (!user) {
     return (
-      <Box sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        bgcolor: 'black',
-      }}>
-        <Typography variant="h4" sx={{ color: 'white' }}>
-          Chargement...
-        </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', bgcolor: 'black' }}>
+        <Typography variant="h4" sx={{ color: 'white' }}>Chargement...</Typography>
       </Box>
     );
   }
@@ -477,33 +430,12 @@ const handleSaveNotificationPrefs = async () => {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black', position: 'relative' }}>
       {/* Aurora Background */}
-      <Box
-        sx={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 0,
-          pointerEvents: "none",
-          opacity: 0.4,
-        }}
-      >
-        <Aurora
-          colorStops={["#66a1ff", "#B19EEF", "#5227FF"]}
-          blend={0.5}
-          amplitude={1.0}
-          speed={1}
-        />
+      <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.4 }}>
+        <Aurora colorStops={['#66a1ff', '#B19EEF', '#5227FF']} blend={0.5} amplitude={1.0} speed={1} />
       </Box>
 
-      {/* Sidebar partagé */}
-      <SharedSidebar 
-        mobileOpen={mobileOpen} 
-        onMobileClose={handleDrawerToggle}
-      />
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
 
-      {/* Contenu principal */}
       <Box
         component="main"
         sx={{
@@ -537,14 +469,7 @@ const handleSaveNotificationPrefs = async () => {
           }}
         >
           {isMobile && (
-            <IconButton
-              onClick={handleDrawerToggle}
-              sx={{
-                color: 'white',
-                mr: 1,
-                '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.1)' },
-              }}
-            >
+            <IconButton onClick={handleDrawerToggle} sx={{ color: 'white', mr: 1, '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.1)' } }}>
               <MenuIcon />
             </IconButton>
           )}
@@ -588,16 +513,18 @@ const handleSaveNotificationPrefs = async () => {
           </Box>
         </Box>
 
-        {/* Contenu de la page Profile */}
+        {/* Page content */}
         <Box sx={{ p: 3, pb: 6 }}>
-          {/* En-tête avec avatar */}
-          <Card sx={{ 
-            bgcolor: 'rgba(30, 41, 59, 0.5)',
-            border: '1px solid rgba(59, 130, 246, 0.1)',
-            borderRadius: 3,
-            mb: 4,
-            overflow: 'hidden',
-          }}>
+          {/* Avatar header */}
+          <Card
+            sx={{
+              bgcolor: 'rgba(30, 41, 59, 0.5)',
+              border: '1px solid rgba(59, 130, 246, 0.1)',
+              borderRadius: 3,
+              mb: 4,
+              overflow: 'hidden',
+            }}
+          >
             <CardContent sx={{ p: 4 }}>
               <Grid container spacing={4} alignItems="center">
                 <Grid item xs={12} md={3}>
@@ -670,18 +597,19 @@ const handleSaveNotificationPrefs = async () => {
             </CardContent>
           </Card>
 
-          {/* Cartes d'informations */}
           <Grid container spacing={3}>
             {/* Informations personnelles */}
             <Grid item xs={12} md={6}>
-              <Card sx={{ 
-                bgcolor: 'rgba(30, 41, 59, 0.5)',
-                border: '1px solid rgba(59, 130, 246, 0.1)',
-                borderRadius: 3,
-                height: '100%',
-                transition: 'all 0.3s ease',
-                '&:hover': { borderColor: 'rgba(59, 130, 246, 0.3)', transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)' },
-              }}>
+              <Card
+                sx={{
+                  bgcolor: 'rgba(30, 41, 59, 0.5)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  borderRadius: 3,
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': { borderColor: 'rgba(59, 130, 246, 0.3)', transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)' },
+                }}
+              >
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                     <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -691,13 +619,13 @@ const handleSaveNotificationPrefs = async () => {
                   </Box>
                   <Grid container spacing={2}>
                     {[
-                      { label: 'Prénom', value: user?.first_name || 'Non renseigné', icon: <PersonIcon /> },
-                      { label: 'Nom', value: user?.last_name || 'Non renseigné', icon: <PersonIcon /> },
-                      { label: 'Nom d\'utilisateur', value: user?.username || 'Non renseigné', icon: <BadgeIcon /> },
-                      { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
-                      { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
-                      { label: 'Telegram', value: user?.telegram_username || 'Non renseigné', icon: <TelegramIcon /> },
-                      { label: 'Rôle', value: isAdmin ? 'Administrateur' : getRoleLabel(user?.role), icon: <BadgeIcon /> },
+                      { label: 'Prénom', value: user?.first_name || 'Non renseigné' },
+                      { label: 'Nom', value: user?.last_name || 'Non renseigné' },
+                      { label: "Nom d'utilisateur", value: user?.username || 'Non renseigné' },
+                      { label: 'Email', value: user?.email || 'Non renseigné' },
+                      { label: 'Téléphone', value: user?.phone_number || 'Non renseigné' },
+                      { label: 'Telegram', value: user?.telegram_username || 'Non renseigné' },
+                      { label: 'Rôle', value: isAdmin ? 'Administrateur' : getRoleLabel(user?.role) },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>
                         <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
@@ -713,14 +641,16 @@ const handleSaveNotificationPrefs = async () => {
 
             {/* Contact */}
             <Grid item xs={12} md={6}>
-              <Card sx={{ 
-                bgcolor: 'rgba(30, 41, 59, 0.5)',
-                border: '1px solid rgba(59, 130, 246, 0.1)',
-                borderRadius: 3,
-                height: '100%',
-                transition: 'all 0.3s ease',
-                '&:hover': { borderColor: 'rgba(59, 130, 246, 0.3)', transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)' },
-              }}>
+              <Card
+                sx={{
+                  bgcolor: 'rgba(30, 41, 59, 0.5)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  borderRadius: 3,
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': { borderColor: 'rgba(59, 130, 246, 0.3)', transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)' },
+                }}
+              >
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                     <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -730,10 +660,10 @@ const handleSaveNotificationPrefs = async () => {
                   </Box>
                   <Grid container spacing={2}>
                     {[
-                      { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
-                      { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
-                      { label: 'Telegram', value: user?.telegram_username || 'Non renseigné', icon: <TelegramIcon /> },
-                      { label: 'Adresse', value: user?.address || user?.adresse || 'Non renseigné', icon: <HomeIcon /> },
+                      { label: 'Email', value: user?.email || 'Non renseigné' },
+                      { label: 'Téléphone', value: user?.phone_number || 'Non renseigné' },
+                      { label: 'Telegram', value: user?.telegram_username || 'Non renseigné' },
+                      { label: 'Adresse', value: user?.address || user?.adresse || 'Non renseigné' },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>
                         <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
@@ -747,73 +677,103 @@ const handleSaveNotificationPrefs = async () => {
               </Card>
             </Grid>
 
-            {/* Préférences notifications */}
+            {/* ===================== PRÉFÉRENCES OTP ===================== */}
             <Grid item xs={12} md={6}>
-              <Card sx={{
-                bgcolor: 'rgba(30, 41, 59, 0.5)',
-                border: '1px solid rgba(59, 130, 246, 0.1)',
-                borderRadius: 3,
-                height: '100%',
-                transition: 'all 0.3s ease',
-                '&:hover': { borderColor: 'rgba(59, 130, 246, 0.3)', transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)' },
-              }}>
+              <Card
+                sx={{
+                  bgcolor: 'rgba(30, 41, 59, 0.5)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  borderRadius: 3,
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': { borderColor: 'rgba(59, 130, 246, 0.3)', transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)' },
+                }}
+              >
                 <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  {/* Titre */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <SendIcon sx={{ color: '#3b82f6', fontSize: 24 }} />
                     </Box>
-                    <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>Préférences de Notification</Typography>
+                    <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
+                      Préférences d'envoi du code OTP
+                    </Typography>
                   </Box>
-                  
+
+                  <Typography variant="body2" sx={{ color: '#94a3b8', mb: 3 }}>
+                    Choisissez comment recevoir votre code de connexion à chaque login. Vous pouvez activer un ou les deux canaux.
+                  </Typography>
+
+                  {/* Switch Email */}
                   <FormControlLabel
-                    control={<Switch checked={notificationPrefs.email} onChange={(e) => handleEmailToggle(e.target.checked)} />}
+                    control={
+                      <Switch
+                        checked={notificationPrefs.email}
+                        onChange={(e) => handleEmailToggle(e.target.checked)}
+                      />
+                    }
                     label="Email"
-                    sx={{ color: 'white', display: 'block', mb: 2 }}
+                    sx={{ color: 'white', display: 'block', mb: 0.5 }}
                   />
-                  {notificationPrefs.email && (
+                  {notificationPrefs.email ? (
                     <Typography variant="caption" sx={{ color: '#10b981', display: 'block', mb: 2, ml: 4 }}>
-                      ✓ Activé - Vous recevrez les notifications par email
+                      ✓ Activé — code OTP envoyé à {user?.email}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2, ml: 4 }}>
+                      Désactivé
                     </Typography>
                   )}
-                  
+
+                  {/* Switch Telegram */}
                   <FormControlLabel
-                    control={<Switch checked={notificationPrefs.telegram} onChange={(e) => handleTelegramToggle(e.target.checked)} disabled={!profileForm.telegram_username} />}
+                    control={
+                      <Switch
+                        checked={notificationPrefs.telegram}
+                        onChange={(e) => handleTelegramToggle(e.target.checked)}
+                        disabled={!profileForm.telegram_username}
+                      />
+                    }
                     label="Telegram"
-                    sx={{ color: 'white', display: 'block', mb: 2 }}
+                    sx={{ color: 'white', display: 'block', mb: 0.5 }}
                   />
-                  {!profileForm.telegram_username && (
+                  {!profileForm.telegram_username ? (
                     <Typography variant="caption" sx={{ color: '#f59e0b', display: 'block', mb: 2, ml: 4 }}>
                       ⚠ Configurez votre nom d'utilisateur Telegram dans les informations générales
                     </Typography>
-                  )}
-                  {notificationPrefs.telegram && profileForm.telegram_username && (
+                  ) : notificationPrefs.telegram ? (
                     <Typography variant="caption" sx={{ color: '#10b981', display: 'block', mb: 2, ml: 4 }}>
-                      ✓ Activé - Vous recevrez les notifications sur Telegram (@{profileForm.telegram_username})
+                      ✓ Activé — code OTP envoyé à @{profileForm.telegram_username}
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2, ml: 4 }}>
+                      Désactivé
                     </Typography>
                   )}
-                  
-                  <FormControlLabel
-                    control={<Switch checked={notificationPrefs.push} onChange={(e) => setNotificationPrefs({ ...notificationPrefs, push: e.target.checked })} />}
-                    label="Notifications Push"
-                    sx={{ color: 'white', display: 'block', mb: 2 }}
-                  />
 
-                  <TextField
-                    select
-                    fullWidth
-                    label="Fréquence"
-                    value={notificationPrefs.frequency}
-                    onChange={(e) => setNotificationPrefs({ ...notificationPrefs, frequency: e.target.value })}
-                    sx={{ mb: 2 }}
-                    InputLabelProps={{ sx: { color: '#94a3b8' } }}
-                    SelectProps={{ sx: { color: 'white' } }}
+                  {/* Info double canal */}
+                  {notificationPrefs.email && notificationPrefs.telegram && (
+                    <Box
+                      sx={{
+                        mt: 1,
+                        mb: 2,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: 'rgba(59, 130, 246, 0.08)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: '#3b82f6' }}>
+                        ℹ Vous recevrez le code OTP sur les deux canaux (email + Telegram) à chaque connexion
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveNotificationPrefs}
+                    sx={{ textTransform: 'none', mt: 1 }}
                   >
-                    <MenuItem value="realtime">Temps réel</MenuItem>
-                    <MenuItem value="hourly">Chaque heure</MenuItem>
-                    <MenuItem value="daily">Quotidien</MenuItem>
-                  </TextField>
-
-                  <Button variant="contained" onClick={handleSaveNotificationPrefs} sx={{ textTransform: 'none' }}>
                     Sauvegarder
                   </Button>
                 </CardContent>
@@ -822,16 +782,25 @@ const handleSaveNotificationPrefs = async () => {
 
             {/* Paramètres sécurité */}
             <Grid item xs={12} md={6}>
-              <Card sx={{
-                bgcolor: 'rgba(30, 41, 59, 0.5)',
-                border: '1px solid rgba(59, 130, 246, 0.1)',
-                borderRadius: 3,
-                height: '100%',
-              }}>
+              <Card
+                sx={{
+                  bgcolor: 'rgba(30, 41, 59, 0.5)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  borderRadius: 3,
+                  height: '100%',
+                }}
+              >
                 <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, mb: 2 }}>Paramètres de Sécurité</Typography>
+                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, mb: 2 }}>
+                    Paramètres de Sécurité
+                  </Typography>
                   <FormControlLabel
-                    control={<Switch checked={securityPrefs.twoFactor} onChange={(e) => setSecurityPrefs({ ...securityPrefs, twoFactor: e.target.checked })} />}
+                    control={
+                      <Switch
+                        checked={securityPrefs.twoFactor}
+                        onChange={(e) => setSecurityPrefs({ ...securityPrefs, twoFactor: e.target.checked })}
+                      />
+                    }
                     label="Activer la double authentification (2FA)"
                     sx={{ color: 'white', mb: 2 }}
                   />
@@ -844,21 +813,44 @@ const handleSaveNotificationPrefs = async () => {
 
             {/* Informations générales modifiables */}
             <Grid item xs={12} md={6}>
-              <Card sx={{
-                bgcolor: 'rgba(30, 41, 59, 0.5)',
-                border: '1px solid rgba(59, 130, 246, 0.1)',
-                borderRadius: 3,
-                height: '100%',
-              }}>
+              <Card
+                sx={{
+                  bgcolor: 'rgba(30, 41, 59, 0.5)',
+                  border: '1px solid rgba(59, 130, 246, 0.1)',
+                  borderRadius: 3,
+                  height: '100%',
+                }}
+              >
                 <CardContent sx={{ p: 3 }}>
-                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, mb: 2 }}>Informations Générales</Typography>
-                  <TextField fullWidth label="Prénom" value={profileForm.first_name} onChange={(e) => setProfileForm({ ...profileForm, first_name: e.target.value })} sx={{ mb: 2 }} InputLabelProps={{ sx: { color: '#94a3b8' } }} inputProps={{ style: { color: 'white' } }} />
-                  <TextField fullWidth label="Nom" value={profileForm.last_name} onChange={(e) => setProfileForm({ ...profileForm, last_name: e.target.value })} sx={{ mb: 2 }} InputLabelProps={{ sx: { color: '#94a3b8' } }} inputProps={{ style: { color: 'white' } }} />
-                  <TextField fullWidth label="Nom d'utilisateur" value={profileForm.username} onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} sx={{ mb: 2 }} InputLabelProps={{ sx: { color: '#94a3b8' } }} inputProps={{ style: { color: 'white' } }} />
-                  <TextField fullWidth label="Téléphone" value={profileForm.phone_number} onChange={(e) => setProfileForm({ ...profileForm, phone_number: e.target.value })} sx={{ mb: 2 }} InputLabelProps={{ sx: { color: '#94a3b8' } }} inputProps={{ style: { color: 'white' } }} />
-                  <TextField fullWidth label="Nom d'utilisateur Telegram" value={profileForm.telegram_username} onChange={(e) => setProfileForm({ ...profileForm, telegram_username: e.target.value })} sx={{ mb: 2 }} InputLabelProps={{ sx: { color: '#94a3b8' } }} inputProps={{ style: { color: 'white' } }} helperText="Format: @username ou username (sans @)" />
-                  <TextField fullWidth label="Entreprise" value={profileForm.company} onChange={(e) => setProfileForm({ ...profileForm, company: e.target.value })} sx={{ mb: 2 }} InputLabelProps={{ sx: { color: '#94a3b8' } }} inputProps={{ style: { color: 'white' } }} />
-                  <Button variant="contained" onClick={handleSaveGeneralInfo} disabled={savingProfile} sx={{ textTransform: 'none' }}>
+                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, mb: 2 }}>
+                    Informations Générales
+                  </Typography>
+                  {[
+                    { label: 'Prénom', key: 'first_name' },
+                    { label: 'Nom', key: 'last_name' },
+                    { label: "Nom d'utilisateur", key: 'username' },
+                    { label: 'Téléphone', key: 'phone_number' },
+                    { label: "Nom d'utilisateur Telegram", key: 'telegram_username', helper: "Format: @username ou username (sans @)" },
+                    { label: 'Entreprise', key: 'company' },
+                  ].map((field) => (
+                    <TextField
+                      key={field.key}
+                      fullWidth
+                      label={field.label}
+                      value={profileForm[field.key]}
+                      onChange={(e) => setProfileForm({ ...profileForm, [field.key]: e.target.value })}
+                      sx={{ mb: 2 }}
+                      InputLabelProps={{ sx: { color: '#94a3b8' } }}
+                      inputProps={{ style: { color: 'white' } }}
+                      helperText={field.helper}
+                    />
+                  ))}
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveGeneralInfo}
+                    disabled={savingProfile}
+                    sx={{ textTransform: 'none' }}
+                  >
                     {savingProfile ? 'Enregistrement...' : 'Sauvegarder les informations'}
                   </Button>
                 </CardContent>
@@ -873,15 +865,26 @@ const handleSaveNotificationPrefs = async () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={4}>
                       <Typography sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>Rôle actuel</Typography>
-                      <Typography sx={{ color: 'white', fontWeight: 600 }}>{isAdmin ? 'Administrateur' : getRoleLabel(user?.role)}</Typography>
+                      <Typography sx={{ color: 'white', fontWeight: 600 }}>
+                        {isAdmin ? 'Administrateur' : getRoleLabel(user?.role)}
+                      </Typography>
                     </Grid>
                     <Grid item xs={12} md={8}>
                       <Typography sx={{ color: '#94a3b8', fontSize: '0.85rem', mb: 1 }}>Permissions actives</Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {[user?.is_superuser ? 'Accès total' : null, user?.is_staff ? 'Backoffice' : null, user?.is_active ? 'Compte actif' : 'Compte inactif']
+                        {[
+                          user?.is_superuser ? 'Accès total' : null,
+                          user?.is_staff ? 'Backoffice' : null,
+                          user?.is_active ? 'Compte actif' : 'Compte inactif',
+                        ]
                           .filter(Boolean)
                           .map((permission) => (
-                            <Chip key={permission} label={permission} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }} />
+                            <Chip
+                              key={permission}
+                              label={permission}
+                              size="small"
+                              sx={{ bgcolor: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}
+                            />
                           ))}
                       </Box>
                     </Grid>
@@ -889,27 +892,43 @@ const handleSaveNotificationPrefs = async () => {
                 </CardContent>
               </Card>
             </Grid>
-          
-            {/* Footer avec informations */}
-            <Box sx={{ mt: 4, p: 3, bgcolor: 'rgba(30, 41, 59, 0.5)', borderRadius: 2, border: '1px solid rgba(59, 130, 246, 0.1)', width: '100%' }}>
+
+            {/* Footer */}
+            <Box
+              sx={{
+                mt: 4,
+                p: 3,
+                bgcolor: 'rgba(30, 41, 59, 0.5)',
+                borderRadius: 2,
+                border: '1px solid rgba(59, 130, 246, 0.1)',
+                width: '100%',
+              }}
+            >
               <Typography variant="body2" sx={{ color: '#94a3b8', textAlign: 'center' }}>
-                Dernière mise à jour: {new Date(user?.date_joined || Date.now()).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} • 
-                Votre compte est sécurisé avec l'authentification à deux facteurs
+                Dernière mise à jour:{' '}
+                {new Date(user?.date_joined || Date.now()).toLocaleDateString('fr-FR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}{' '}
+                • Votre compte est sécurisé avec l'authentification à deux facteurs
               </Typography>
             </Box>
           </Grid>
         </Box>
       </Box>
 
-      {/* Dialog de vérification OTP */}
-      <Dialog 
-        open={otpDialogOpen} 
+      {/* Dialog OTP */}
+      <Dialog
+        open={otpDialogOpen}
         onClose={() => {
           if (!verificationInProgress) {
             setOtpDialogOpen(false);
             setOtpCode('');
-            setOtpSent(false);
-            setOtpChannel(null);
+            setCurrentVerificationChannel(null);
+            setPendingOtps({ email: false, telegram: false });
           }
         }}
         PaperProps={{
@@ -918,36 +937,40 @@ const handleSaveNotificationPrefs = async () => {
             border: '1px solid rgba(59, 130, 246, 0.3)',
             borderRadius: 3,
             minWidth: { xs: '90%', sm: 400 },
-          }
+          },
         }}
       >
         <DialogTitle sx={{ color: 'white', borderBottom: '1px solid rgba(59, 130, 246, 0.2)', pb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {otpChannel === 'telegram' ? <TelegramIcon sx={{ color: '#229ED9' }} /> : <EmailIcon sx={{ color: '#ef4444' }} />}
+            {currentVerificationChannel === 'telegram' ? (
+              <TelegramIcon sx={{ color: '#229ED9' }} />
+            ) : (
+              <EmailIcon sx={{ color: '#ef4444' }} />
+            )}
             <Typography component="span" sx={{ fontWeight: 700 }}>
-              Vérification {otpChannel === 'telegram' ? 'Telegram' : 'Email'}
+              Vérification {currentVerificationChannel === 'telegram' ? 'Telegram' : 'Email'}
             </Typography>
           </Box>
         </DialogTitle>
-        
+
         <DialogContent sx={{ pt: 3 }}>
           <Typography sx={{ color: '#94a3b8', mb: 2 }}>
-            Un code de vérification a été envoyé à votre {otpChannel === 'telegram' ? 'compte Telegram' : 'adresse email'}.
-            Veuillez saisir le code à 6 chiffres ci-dessous pour activer les notifications.
+            Un code de vérification a été envoyé à votre{' '}
+            {currentVerificationChannel === 'telegram' ? 'compte Telegram' : 'adresse email'}.
+            Veuillez saisir le code à 6 chiffres ci-dessous.
           </Typography>
-          
-          {otpChannel === 'telegram' && profileForm.telegram_username && (
+
+          {currentVerificationChannel === 'telegram' && profileForm.telegram_username && (
             <Typography sx={{ color: '#229ED9', mb: 2, fontSize: '0.85rem' }}>
               📱 Destinataire: @{profileForm.telegram_username}
             </Typography>
           )}
-          
-          {otpChannel === 'email' && user?.email && (
+          {currentVerificationChannel === 'email' && user?.email && (
             <Typography sx={{ color: '#ef4444', mb: 2, fontSize: '0.85rem' }}>
               📧 Destinataire: {user.email}
             </Typography>
           )}
-          
+
           <TextField
             fullWidth
             label="Code OTP"
@@ -955,6 +978,7 @@ const handleSaveNotificationPrefs = async () => {
             onChange={(e) => setOtpCode(e.target.value)}
             placeholder="123456"
             autoFocus
+            disabled={verificationInProgress || otpLoading}
             sx={{
               mb: 2,
               '& .MuiOutlinedInput-root': {
@@ -965,19 +989,42 @@ const handleSaveNotificationPrefs = async () => {
               '& .MuiInputLabel-root': { color: '#94a3b8' },
             }}
           />
-          
+
+          {otpLoading && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <CircularProgress size={20} />
+              <Typography variant="caption" sx={{ color: '#64748b' }}>
+                Envoi du code en cours...
+              </Typography>
+            </Box>
+          )}
+
           <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
-            Le code est valable 5 minutes. Si vous n'avez pas reçu le code, vérifiez vos spams ou réessayez.
+            Le code est valable 5 minutes. Si vous ne l'avez pas reçu, vérifiez vos spams ou réessayez.
           </Typography>
+
+          <Button
+            onClick={() => {
+              if (currentVerificationChannel === 'email') {
+                sendOTP('email', user.email);
+              } else {
+                sendOTP('telegram', profileForm.telegram_username);
+              }
+            }}
+            disabled={otpLoading}
+            sx={{ mt: 2, textTransform: 'none' }}
+          >
+            Renvoyer le code
+          </Button>
         </DialogContent>
-        
+
         <DialogActions sx={{ p: 3, pt: 1, borderTop: '1px solid rgba(59, 130, 246, 0.2)', gap: 2 }}>
-          <Button 
+          <Button
             onClick={() => {
               setOtpDialogOpen(false);
               setOtpCode('');
-              setOtpSent(false);
-              setOtpChannel(null);
+              setCurrentVerificationChannel(null);
+              setPendingOtps({ email: false, telegram: false });
             }}
             disabled={verificationInProgress}
             sx={{ color: '#94a3b8', textTransform: 'none' }}
@@ -987,13 +1034,9 @@ const handleSaveNotificationPrefs = async () => {
           <Button
             variant="contained"
             onClick={verifyOTP}
-            disabled={!otpCode || verificationInProgress}
+            disabled={!otpCode || verificationInProgress || otpLoading}
             startIcon={verificationInProgress ? <CircularProgress size={20} /> : <CheckCircleIcon />}
-            sx={{
-              bgcolor: '#3b82f6',
-              textTransform: 'none',
-              '&:hover': { bgcolor: '#2563eb' },
-            }}
+            sx={{ bgcolor: '#3b82f6', textTransform: 'none', '&:hover': { bgcolor: '#2563eb' } }}
           >
             {verificationInProgress ? 'Vérification...' : 'Vérifier et activer'}
           </Button>

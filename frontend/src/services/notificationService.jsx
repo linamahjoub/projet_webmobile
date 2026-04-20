@@ -1,4 +1,5 @@
 const API_BASE = "http://localhost:8000/api";
+const NOTIFICATIONS_ENDPOINT = `${API_BASE}/notifications/`;
 
 // Mapping entre les modules ERP et les modules backend
 const MODULE_MAPPING = {
@@ -22,7 +23,7 @@ export const notificationService = {
   async getNotificationsByModule() {
     try {
       console.log(' Appel API: GET /api/notifications/');
-      const response = await fetch(`${API_BASE}/notifications/`, {
+      const response = await fetch(NOTIFICATIONS_ENDPOINT, {
         headers: getAuthHeaders(),
       });
 
@@ -90,7 +91,7 @@ export const notificationService = {
    */
   async getNotificationsByModuleName(moduleName) {
     try {
-      const response = await fetch(`${API_BASE}/notifications/`, {
+      const response = await fetch(NOTIFICATIONS_ENDPOINT, {
         headers: getAuthHeaders(),
       });
 
@@ -113,7 +114,7 @@ export const notificationService = {
    */
   async getUnreadCount() {
     try {
-      const response = await fetch(`${API_BASE}/notifications/unread_count/`, {
+      const response = await fetch(`${NOTIFICATIONS_ENDPOINT}unread_count/`, {
         headers: getAuthHeaders(),
       });
 

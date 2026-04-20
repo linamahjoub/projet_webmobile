@@ -154,16 +154,40 @@ const Orders = () => {
   });
 
   // ✅ FONCTION: Calculer le stock restant
-  const getRemainingStockForProduct = (productId, currentOrderId) => {
-    const product = products.find((p) => p && p.id === productId);
+  const normalizeProductId = (value) =>
+    value === undefined || value === null || value === "" ? null : Number(value);
+
+  const getProductById = (productId) => {
+    const normalizedProductId = normalizeProductId(productId);
+    if (normalizedProductId === null) return null;
+    return (
+      products.find((product) => normalizeProductId(product?.id) === normalizedProductId) || null
+    );
+  };
+
+  const getProductStock = (product) =>
+    Number(
+      product?.quantity ??
+        product?.quantite ??
+        product?.stock_disponible ??
+        product?.stockDisponible ??
+        0
+    ) || 0;
+
+  const getRemainingStockForProduct = (productId) => {
+    const normalizedProductId = normalizeProductId(productId);
+    const product = getProductById(normalizedProductId);
     if (!product) return 0;
-    const totalStock = Number(product.quantity) || 0;
+    const totalStock = getProductStock(product);
     const totalOrderedInAllOrders = (orders || [])
       .filter((order) => order && order.id && order.status !== "cancelled")
       .reduce((total, order) => {
         const orderItems = order.items || [];
         const productInOrder = orderItems.find(
-          (item) => item && (item.product_id === productId || item.product?.id === productId)
+          (item) =>
+            item &&
+            (normalizeProductId(item.product_id) === normalizedProductId ||
+              normalizeProductId(item.product?.id) === normalizedProductId)
         );
         if (productInOrder) {
           return total + (Number(productInOrder.quantity) || 0);
@@ -204,11 +228,17 @@ const Orders = () => {
         const items = Array.isArray(data) ? data : data.results || [];
         const productsWithStock = items.map((product) => ({
           ...product,
-          id: product.id || product.product_id,
-          quantity: Number(product.quantity) || 0,
+          id: normalizeProductId(product.id || product.product_id),
+          quantity:
+            Number(
+              product.quantity ??
+                product.quantite ??
+                product.stock_disponible ??
+                product.stockDisponible ??
+                0
+            ) || 0,
           sku: product.sku || product.nomenclature || "",
           name: product.name || product.designation || "Produit",
-          // ✅ CORRECTION UNITÉ : gérer tous les noms possibles
           unit: product.unit || product.unite || product.measurement_unit || product.unit_of_measure || "U",
         }));
         setProducts(productsWithStock);
@@ -393,7 +423,7 @@ const Orders = () => {
     setSelectedOrder(null);
   };
 
-  // ✅ handleExportPDF - UNITÉ FIXÉE
+  // ✅ handleExportPDF - UNITÉ FIXÉE + STATUT AJOUTÉ
   const handleExportPDF = () => {
     if (!selectedOrder) return;
     const orderId = selectedOrder.id ?? "-";
@@ -403,6 +433,9 @@ const Orders = () => {
     const customerName =
       selectedOrder.customer?.full_name || selectedOrder.customer_name || "-";
     const items = Array.isArray(selectedOrder.items) ? selectedOrder.items : [];
+    const statutLabel = statusConfig[selectedOrder.status]?.label || selectedOrder.status;
+    const statutColor = statusConfig[selectedOrder.status]?.color || "#64748b";
+    
     const htmlContent = `
 <!DOCTYPE html>
 <html lang="fr">
@@ -434,6 +467,7 @@ body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #222
 <div><strong>Date :</strong> ${orderDate}</div>
 <div><strong>N° :</strong> CMD-${orderId}</div>
 <div><strong>Employé :</strong> ${customerName}</div>
+<div><strong>Statut :</strong> <span style="color:${statutColor};font-weight:600;">${statutLabel}</span></div>
 </div>
 </div>
 <table class="bon-table">
@@ -452,18 +486,16 @@ ${
   items && items.length > 0
     ? items
         .map((item, idx) => {
-          const product = products.find(
-            (p) => p && p.id === (item.product_id || item.product?.id)
-          );
+          const product = getProductById(item.product_id || item.product?.id);
           const nomenclature =
             product?.sku || product?.nomenclature || `PROD-${idx + 1}`;
           const designation = product?.name || "Produit";
-          // ✅ CORRECTION UNITÉ
           const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
           const quantite = Number(item.quantity) || 0;
           const prixUnitaire = parseFloat(item.unit_price) || 0;
-          const stockDisponible = product?.quantity || 0;
-          const quantiteRestante = Math.max(0, stockDisponible - quantite);
+          const quantiteRestante = getRemainingStockForProduct(
+            item.product_id || item.product?.id
+          );
           return `
 <tr>
 <td>${nomenclature}</td>
@@ -928,6 +960,18 @@ ${
                         backgroundColor: "rgba(30,41,59,0.9)",
                       }}
                     >
+                      Statut
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
                       Actions
                     </TableCell>
                   </TableRow>
@@ -938,20 +982,16 @@ ${
                       order.items && order.items.length > 0
                         ? order.items.map((item, itemIndex) => {
                             const productId = item.product_id || item.product?.id;
-                            const product = products.find((p) => p && p.id === productId);
+                            const product = getProductById(productId);
                             const nomenclature =
                               product?.sku ||
                               product?.nomenclature ||
                               `PROD-${item.id || itemIndex + 1}`;
                             const designation = product?.name || "Produit";
-                            // ✅ CORRECTION UNITÉ
                             const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
                             const quantite = Number(item.quantity) || 0;
                             const prixUnitaire = parseFloat(item.unit_price) || 0;
-                            const quantiteRestante = getRemainingStockForProduct(
-                              productId,
-                              order.id
-                            );
+                            const quantiteRestante = getRemainingStockForProduct(productId);
                             return (
                               <TableRow
                                 key={`${order.id}-${item.id || itemIndex}`}
@@ -1018,6 +1058,19 @@ ${
                                   {quantiteRestante}
                                 </TableCell>
                                 <TableCell align="center">
+                                  <Chip
+                                    label={statusConfig[order.status]?.label || order.status}
+                                    sx={{
+                                      bgcolor: `${statusConfig[order.status]?.color || "#64748b"}20`,
+                                      color: statusConfig[order.status]?.color || "#64748b",
+                                      fontWeight: 600,
+                                      fontSize: "0.75rem",
+                                      px: 1,
+                                      height: 24,
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell align="center">
                                   <Tooltip title="Voir détails">
                                     <IconButton
                                       size="small"
@@ -1033,7 +1086,7 @@ ${
                           })
                         : [
                             <TableRow key={order.id}>
-                              <TableCell colSpan={7} sx={{ border: "none" }}>
+                              <TableCell colSpan={8} sx={{ border: "none" }}>
                                 <Box sx={{ textAlign: "center", py: 2 }}>
                                   <Typography sx={{ color: "#64748b" }}>
                                     Commande #{order.id} - Aucun article
@@ -1052,7 +1105,7 @@ ${
                     )
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} sx={{ border: "none" }}>
+                      <TableCell colSpan={8} sx={{ border: "none" }}>
                         <Box sx={{ textAlign: "center", py: 6 }}>
                           <ShoppingCartIcon
                             sx={{
@@ -1218,26 +1271,32 @@ ${
                         >
                           Qté restante
                         </TableCell>
+                        <TableCell
+                          align="center"
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Statut
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {selectedOrder.items && selectedOrder.items.length > 0 ? (
                         selectedOrder.items.map((item, idx) => {
                           const productId = item.product_id || item.product?.id;
-                          const product = products.find((p) => p && p.id === productId);
+                          const product = getProductById(productId);
                           const nomenclature =
                             product?.sku ||
                             product?.nomenclature ||
                             `PROD-${idx + 1}`;
                           const designation = product?.name || "Produit";
-                          // ✅ CORRECTION UNITÉ
                           const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
                           const quantite = Number(item.quantity) || 0;
                           const prixUnitaire = parseFloat(item.unit_price) || 0;
-                          const quantiteRestante = getRemainingStockForProduct(
-                            productId,
-                            selectedOrder.id
-                          );
+                          const quantiteRestante = getRemainingStockForProduct(productId);
                           return (
                             <TableRow
                               key={item.id || idx}
@@ -1289,13 +1348,26 @@ ${
                               >
                                 {quantiteRestante}
                               </TableCell>
+                              <TableCell align="center">
+                                <Chip
+                                  label={statusConfig[selectedOrder.status]?.label || selectedOrder.status}
+                                  sx={{
+                                    bgcolor: `${statusConfig[selectedOrder.status]?.color || "#64748b"}20`,
+                                    color: statusConfig[selectedOrder.status]?.color || "#64748b",
+                                    fontWeight: 600,
+                                    fontSize: "0.75rem",
+                                    px: 1,
+                                    height: 24,
+                                  }}
+                                />
+                              </TableCell>
                             </TableRow>
                           );
                         })
                       ) : (
                         <TableRow>
                           <TableCell
-                            colSpan={6}
+                            colSpan={7}
                             align="center"
                             sx={{ color: "#64748b", py: 3 }}
                           >

@@ -58,6 +58,7 @@ class Alert(models.Model):
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='medium')
     
     # Conditions
+    check_condition = models.JSONField(default=dict, blank=True)
     condition_type = models.CharField(max_length=50, choices=CONDITION_TYPES, default='threshold')
     threshold_value = models.CharField(max_length=255, blank=True, null=True)
     comparison_operator = models.CharField(
@@ -75,6 +76,8 @@ class Alert(models.Model):
     # Notifications
     notification_channels = models.JSONField(default=list, help_text="Liste des canaux de notification")
     recipients = models.JSONField(default=list, help_text="Liste des destinataires")
+    custom_subject = models.CharField(max_length=255, blank=True, null=True, help_text="Sujet d'email personnalisé")
+    custom_body = models.TextField(blank=True, null=True, help_text="Corps d'email personnalisé")
     
     # Calendrier
     schedule = models.CharField(max_length=20, choices=SCHEDULE_CHOICES, default='immediate')
@@ -83,6 +86,7 @@ class Alert(models.Model):
     
     # Statut
     is_active = models.BooleanField(default=True)
+    is_paused = models.BooleanField(default=False, help_text="Alerte en pause - pas de notifications")
     tags = models.JSONField(default=list, blank=True)
     
     # Métadonnées

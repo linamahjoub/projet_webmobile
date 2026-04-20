@@ -26,8 +26,10 @@ import { Menu as MenuIcon, PersonAdd as PersonAddIcon } from '@mui/icons-materia
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SharedSidebar from '../components/SharedSidebar';
+import { useTranslation } from 'react-i18next';
 
 const EmployeesNew = () => {
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
@@ -53,35 +55,35 @@ const EmployeesNew = () => {
   });
 
   const availableRoles = [
-    { value: 'employe', label: 'Employe', roleValue: 'employe', is_staff: false, is_superuser: false },
-    { value: 'responsable_stock', label: 'Responsable stock', roleValue: 'responsable_stock', is_staff: false, is_superuser: false },
-    { value: 'commercial', label: 'Commercial', roleValue: 'commercial', is_staff: false, is_superuser: false },
-    { value: 'achats', label: 'Achats', roleValue: 'achats', is_staff: false, is_superuser: false },
-    { value: 'admin', label: 'Administrateur', roleValue: 'employe', is_staff: true, is_superuser: false }
+    { value: 'employe', label: t('employee'), roleValue: 'employe', is_staff: false, is_superuser: false },
+    { value: 'responsable_stock', label: t('stockManager'), roleValue: 'responsable_stock', is_staff: false, is_superuser: false },
+    { value: 'commercial', label: t('sales'), roleValue: 'commercial', is_staff: false, is_superuser: false },
+    { value: 'achats', label: t('purchasing'), roleValue: 'achats', is_staff: false, is_superuser: false },
+    { value: 'admin', label: t('administrator'), roleValue: 'employe', is_staff: true, is_superuser: false }
   ];
 
   const availablePages = [
-    'Dashboard',
-    'Stock',
-    'Fournisseurs',
-    'Catégories',
-    'Entrepôts',
-    'Alertes',
-    'Notifications',
-    'Rapports',
-    'Paramètres',
+    t('dashboard'),
+    t('stock'),
+    t('suppliers'),
+    t('categories'),
+    t('warehouses'),
+    t('alerts'),
+    t('notifications'),
+    t('reports'),
+    t('settings'),
   ];
 
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
   const handleAddEmployee = async () => {
     if (!employeeData.email || !employeeData.username || !employeeData.password) {
-      setErrorMessage('Email, nom d\'utilisateur et mot de passe sont requis');
+      setErrorMessage(t('emailUsernamePasswordRequired'));
       return;
     }
 
     if (employeeData.password !== employeeData.confirm_password) {
-      setErrorMessage('Les mots de passe ne correspondent pas');
+      setErrorMessage(t('passwordsDoNotMatch'));
       return;
     }
 
@@ -146,11 +148,11 @@ const EmployeesNew = () => {
           return fieldMessages[0] || null;
         };
 
-        setErrorMessage(errorMessageFromApi() || 'Erreur lors de l\'ajout de l\'employé');
+        setErrorMessage(errorMessageFromApi() || t('errorAddingEmployee'));
         return;
       }
 
-      setSuccessMessage('Employé ajouté avec succès');
+      setSuccessMessage(t('employeeAddedSuccessfully'));
       setEmployeeData({
         email: '',
         username: '',
@@ -164,7 +166,7 @@ const EmployeesNew = () => {
         authorized_pages: [],
       });
     } catch (error) {
-      setErrorMessage('Erreur réseau lors de l\'ajout de l\'employé');
+      setErrorMessage(t('networkErrorAddingEmployee'));
     } finally {
       setLoading(false);
     }
@@ -190,7 +192,7 @@ const EmployeesNew = () => {
                 <MenuIcon />
               </IconButton>
               <Typography variant="h6" sx={{ color: 'white' }}>
-                Nouvel employé
+                {t('newEmployee')}
               </Typography>
             </Toolbar>
           </AppBar>
@@ -204,10 +206,10 @@ const EmployeesNew = () => {
                 sx={{ p: 4, mt: 4, bgcolor: 'rgba(30,41,59,0.5)', border: '1px solid rgba(59,130,246,0.1)' }}
               >
                 <Typography variant="h4" sx={{ color: 'white', mb: 2 }}>
-                  Accès refusé
+                  {t('accessDenied')}
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b' }}>
-                  Cette section est réservée aux administrateurs.
+                  {t('adminOnlySection')}
                 </Typography>
               </Paper>
             ) : (
@@ -219,10 +221,10 @@ const EmployeesNew = () => {
                   <PersonAddIcon sx={{ color: '#3b82f6', fontSize: 32 }} />
                   <Box>
                     <Typography variant="h4" sx={{ color: 'white' }}>
-                      Ajouter un nouvel employé
+                      {t('addNewEmployee')}
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
-                      Créez un compte employé et définissez ses permissions
+                      {t('createEmployeeAccount')}
                     </Typography>
                   </Box>
                 </Box>
@@ -247,7 +249,7 @@ const EmployeesNew = () => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                     <TextField
-                      label="Email"
+                      label={t('email')}
                       type="email"
                       value={employeeData.email}
                       onChange={(e) => setEmployeeData({ ...employeeData, email: e.target.value })}
@@ -268,7 +270,7 @@ const EmployeesNew = () => {
                     />
 
                     <TextField
-                      label="Nom d'utilisateur"
+                      label={t('username')}
                       value={employeeData.username}
                       onChange={(e) => setEmployeeData({ ...employeeData, username: e.target.value })}
                       fullWidth
@@ -290,7 +292,7 @@ const EmployeesNew = () => {
 
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                     <TextField
-                      label="Prénom"
+                      label={t('firstName')}
                       value={employeeData.first_name}
                       onChange={(e) => setEmployeeData({ ...employeeData, first_name: e.target.value })}
                       fullWidth
@@ -309,7 +311,7 @@ const EmployeesNew = () => {
                     />
 
                     <TextField
-                      label="Nom"
+                      label={t('lastName')}
                       value={employeeData.last_name}
                       onChange={(e) => setEmployeeData({ ...employeeData, last_name: e.target.value })}
                       fullWidth
@@ -330,7 +332,7 @@ const EmployeesNew = () => {
 
                   <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                     <TextField
-                      label="Téléphone"
+                      label={t('phone')}
                       value={employeeData.phone_number}
                       onChange={(e) => setEmployeeData({ ...employeeData, phone_number: e.target.value })}
                       fullWidth
@@ -349,7 +351,7 @@ const EmployeesNew = () => {
                     />
 
                     <TextField
-                      label="Entreprise"
+                      label={t('company')}
                       value={employeeData.company}
                       onChange={(e) => setEmployeeData({ ...employeeData, company: e.target.value })}
                       fullWidth
@@ -369,7 +371,7 @@ const EmployeesNew = () => {
                   </Box>
 
                   <TextField
-                    label="Mot de passe"
+                    label={t('password')}
                     type="password"
                     value={employeeData.password}
                     onChange={(e) => setEmployeeData({ ...employeeData, password: e.target.value })}
@@ -390,7 +392,7 @@ const EmployeesNew = () => {
                   />
 
                   <TextField
-                    label="Confirmer mot de passe"
+                    label={t('confirmPassword')}
                     type="password"
                     value={employeeData.confirm_password}
                     onChange={(e) => setEmployeeData({ ...employeeData, confirm_password: e.target.value })}
@@ -399,7 +401,7 @@ const EmployeesNew = () => {
                     error={employeeData.password && employeeData.confirm_password && employeeData.password !== employeeData.confirm_password}
                     helperText={
                       employeeData.password && employeeData.confirm_password && employeeData.password !== employeeData.confirm_password
-                        ? 'Les mots de passe ne correspondent pas'
+                        ? t('passwordsDoNotMatch')
                         : ''
                     }
                     sx={{
@@ -418,11 +420,11 @@ const EmployeesNew = () => {
                   />
 
                   <FormControl fullWidth>
-                    <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Rôle</InputLabel>
+                    <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>{t('role')}</InputLabel>
                     <Select
                       value={employeeData.role}
                       onChange={(e) => setEmployeeData({ ...employeeData, role: e.target.value })}
-                      label="Rôle"
+                      label={t('role')}
                       sx={{
                         color: '#94a3b8',
                         '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
@@ -441,12 +443,12 @@ const EmployeesNew = () => {
                   </FormControl>
 
                   <FormControl fullWidth>
-                    <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Pages autorisées</InputLabel>
+                    <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>{t('authorizedPages')}</InputLabel>
                     <Select
                       multiple
                       value={employeeData.authorized_pages}
                       onChange={(e) => setEmployeeData({ ...employeeData, authorized_pages: e.target.value })}
-                      input={<OutlinedInput label="Pages autorisées" />}
+                      input={<OutlinedInput label={t('authorizedPages')} />}
                       renderValue={(selected) => (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                           {selected.map((value) => (
@@ -487,7 +489,7 @@ const EmployeesNew = () => {
                         '&:hover': { borderColor: '#3b82f6', color: '#3b82f6' },
                       }}
                     >
-                      Retour
+                      {t('back')}
                     </Button>
 
                     <Button
@@ -507,7 +509,7 @@ const EmployeesNew = () => {
                         '&:disabled': { opacity: 0.6 },
                       }}
                     >
-                      {loading ? <CircularProgress size={24} /> : 'Ajouter l\'employé'}
+                      {loading ? <CircularProgress size={24} /> : t('addEmployee')}
                     </Button>
                   </Box>
                 </Box>

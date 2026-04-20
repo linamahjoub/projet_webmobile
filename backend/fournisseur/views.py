@@ -13,10 +13,29 @@ class SupplierViewSet(viewsets.ModelViewSet):
 	def perform_create(self, serializer):
 		"""Créer un fournisseur et logger l'activité"""
 		supplier = serializer.save()
-		# Logger l'activité
 		ActivityLog.objects.create(
 			actor=self.request.user,
-			action_type=ActivityLog.ACTION_PRODUCT_CREATED,
+			action_type="creation",
 			title=f"Nouveau fournisseur: {supplier.name}",
 			description=f"Fournisseur créé avec succès",
 		)
+
+	def perform_update(self, serializer):
+		"""Modifier un fournisseur et logger l'activité"""
+		supplier = serializer.save()
+		ActivityLog.objects.create(
+			actor=self.request.user,
+			action_type="modification",
+			title=f"Modification du fournisseur: {supplier.name}",
+			description=f"Fournisseur modifié avec succès",
+		)
+
+	def perform_destroy(self, instance):
+		"""Supprimer un fournisseur et logger l'activité"""
+		ActivityLog.objects.create(
+			actor=self.request.user,
+			action_type="suppression",
+			title=f"Suppression du fournisseur: {instance.name}",
+			description=f"Fournisseur supprimé avec succès",
+		)
+		instance.delete()

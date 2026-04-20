@@ -125,7 +125,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 f"• Réapprovisionner immédiatement le produit {product.name}\n"
                 f"• Contacter le fournisseur en urgence\n"
                 f"• Vérifier les commandes impactées\n\n"
-                f"Cordialement,\nSmartAlerte"
+                f"Cordialement,\nSmartNotify"
             )
         elif product.quantity < product.min_quantity:
             title = f"Stock faible - {product.name}"
@@ -140,7 +140,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 f"• Remplir le stock du produit {product.name}\n"
                 f"• Contactez votre fournisseur pour une commande d'urgence\n"
                 f"• Vérifiez les niveaux de stock régulièrement\n\n"
-                f"Cordialement,\nSmartAlerte"
+                f"Cordialement,\nSmartNotify"
             )
 
         if message:

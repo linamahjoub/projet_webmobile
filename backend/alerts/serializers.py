@@ -11,12 +11,14 @@ class AlertSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'user_name', 'user_email',
             'name', 'description', 'module', 'severity',
+            'check_condition',  # Ajout du champ manquant
             'condition_type', 'threshold_value', 'comparison_operator',
             'condition_field', 'compare_to', 'categories',
             'product', 'product_name',
             'notification_channels', 'recipients',
+            'custom_subject', 'custom_body',
             'schedule', 'custom_schedule', 'repeat_until_resolved',
-            'is_active', 'tags',
+            'is_active', 'is_paused', 'tags',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'user_name', 'user_email', 'created_at', 'updated_at']

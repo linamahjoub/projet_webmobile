@@ -21,7 +21,8 @@ DEBUG = True
 
 allowed_hosts_env = os.getenv('DJANGO_ALLOWED_HOSTS') or os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,172.20.10.10')
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
-# Allow all hosts in DEBUG mode for local network access (emulator + physical devices)
+
+# Allow all hosts in DEBUG mode for local network access
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 
@@ -33,7 +34,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
     
+    # --- WEB PUSH LIBRARY ---
+    'webpush', 
+
     # Third party apps
     'rest_framework',
     'rest_framework_simplejwt',
@@ -41,7 +46,7 @@ INSTALLED_APPS = [
     
     # Local apps
     'accounts',
-    'alerts',
+    'alerts.apps.AlertsConfig',
     'notifications',
     'activity',
     'stock',
@@ -52,12 +57,13 @@ INSTALLED_APPS = [
     'entrepots',
     'facturation',
     'production',
+    'purchase',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # CORS doit être avant CommonMiddleware
+    'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -90,7 +96,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'smartalerte_db'),
         'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'postgresql'),  # ← Défaut corrigé
+        'PASSWORD': os.getenv('DB_PASSWORD', 'postgresql'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
@@ -107,21 +113,13 @@ AUTHENTICATION_BACKENDS = [
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {
-            'min_length': 8,
-        }
+        'OPTIONS': {'min_length': 8}
     },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
 # Internationalization
@@ -130,7 +128,7 @@ TIME_ZONE = 'Africa/Tunis'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# Static files
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -138,7 +136,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings
@@ -147,46 +144,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3001",
-    "http://localhost:3004",
-    "http://localhost:3005",
-    "http://127.0.0.1:3005",
-    "http://localhost:3006",
-    "http://127.0.0.1:3006",
 ]
 
 if DEBUG:
-    # VS Code mobile preview/webview can use dynamic localhost origins.
     CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-]
-
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
-
-# Session Settings (pour le suivi des utilisateurs en ligne)
-SESSION_COOKIE_SAMESITE = 'Lax'  # ← Change 'None' en 'Lax'
-SESSION_COOKIE_SECURE = False   # False en développement (HTTP), True en production (HTTPS)
-SESSION_COOKIE_HTTPONLY = True  # Sécurité: le cookie n'est pas accessible via JavaScript
-SESSION_COOKIE_AGE = 86400  # 24 heures (en secondes)
-SESSION_SAVE_EVERY_REQUEST = True  # Met à jour l'expiration à chaque requête
 
 # REST Framework settings
 REST_FRAMEWORK = {
@@ -207,39 +170,28 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
-    
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUDIENCE': None,
-    'ISSUER': None,
-    
     'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-    
-    'JTI_CLAIM': 'jti',
 }
-# Configuration email
+
+# Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'mahjoublina1010@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # À configurer dans .env
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '') 
 DEFAULT_FROM_EMAIL = f'SmartNotify <{EMAIL_HOST_USER}>'
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
-# ==================== GOOGLE OAUTH 2.0 CONFIGURATION ====================
-GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '')
-GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '')
-GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:3000/auth/google/callback')
-
-# ==================== TELEGRAM AUTH / ALERTS CONFIGURATION ====================
+# Telegram Configuration
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME', 'ERP_notif_Bot')
 
+# ==================== WEB PUSH CONFIGURATION ====================
+WEBPUSH_SETTINGS = {
+    "VAPID_PUBLIC_KEY": os.getenv("VAPID_PUBLIC_KEY", ""),
+    "VAPID_PRIVATE_KEY": os.getenv("VAPID_PRIVATE_KEY", ""),
+    "VAPID_ADMIN_EMAIL": os.getenv("EMAIL_HOST_USER", "mahjoublina1010@gmail.com")
+}   

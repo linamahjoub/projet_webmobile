@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { openGoogleLoginPopup } from '../../services/googleOAuthConfig';
 import {
+  Paper,
   TextField,
   Button,
   Typography,
@@ -13,7 +14,6 @@ import {
   InputAdornment,
   Divider,
   Card,
-  Paper,
   CardContent,
   Select,
   MenuItem,
@@ -77,10 +77,10 @@ const Register = () => {
   // Options pour le dropdown des rôles
   const roleOptions = [
     { value: 'responsable_stock', label: 'Responsable Stock' },
+    { value: 'responsable_appro', label: 'Responsable appro' },
     { value: 'commercial', label: 'Commercial' },
     { value: 'achats', label: 'Achats' },
     { value: 'employe', label: 'Employé' },
-    { value: 'client', label: 'Client' },
     { value: 'fournisseur', label: 'Fournisseur' },
   ];
 
@@ -376,6 +376,10 @@ const Register = () => {
       flexDirection: { xs: 'column', md: 'row' },
       m: 0,
       p: 0,
+      overflowY: 'auto',
+      '&::-webkit-scrollbar': { width: '8px' },
+      '&::-webkit-scrollbar-track': { bgcolor: 'rgba(15, 23, 42, 0.4)' },
+      '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(59, 130, 246, 0.3)', borderRadius: '4px', '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.5)' } },
     }}>
       {/* Colonne gauche - Formulaire d'inscription */}
       <Box
@@ -388,6 +392,9 @@ const Register = () => {
           bgcolor: 'white',
           overflowY: 'auto',
           order: { xs: 2, md: 1 },
+          '&::-webkit-scrollbar': { width: '8px' },
+          '&::-webkit-scrollbar-track': { bgcolor: 'rgba(15, 23, 42, 0.4)' },
+          '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(59, 130, 246, 0.3)', borderRadius: '4px', '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.5)' } },
         }}
       >
         <Box sx={{ maxWidth: 450, width: '100%' }}>
@@ -683,94 +690,104 @@ const Register = () => {
                 </Box>
               </Box>
 
-              {/* Champ Role - Version avec Select corrigé */}
-              <Box sx={{ mb: 2 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 600,
-                    color: '#1e293b',
-                    fontSize: '0.875rem',
-                    mb: 0.5
-                  }}
-                >
-                  Rôle
-                </Typography>
-                <FormControl fullWidth size="small" required error={!!roleError}>
-                  <Select
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    displayEmpty
-                    renderValue={(selected) => {
-                      if (!selected) {
-                        return <em style={{ color: '#9ca3af' }}>Sélectionnez votre rôle</em>;
-                      }
-                      const selectedOption = roleOptions.find(opt => opt.value === selected);
-                      return selectedOption ? selectedOption.label : selected;
-                    }}
-                    input={
-                      <OutlinedInput
-                        sx={{
-                          borderRadius: 1,
-                          '& .MuiOutlinedInput-input': {
-                            py: 1,
-                            fontSize: '0.9rem',
-                          },
-                        }}
-                      />
-                    }
-                    MenuProps={{
-                      PaperProps: {
-                        sx: {
-                          maxHeight: 300,
-                          mt: 0.5,
-                          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                          borderRadius: 2,
-                        }
-                      }
-                    }}
-                  >
-                 
-                    {roleOptions.map((option) => (
-                      <MenuItem 
-                        key={option.value} 
-                        value={option.value}
-                        sx={{
-                          fontSize: '0.9rem',
-                          py: 1,
-                          '&:hover': {
-                            bgcolor: 'rgba(59, 130, 246, 0.08)',
-                          },
-                          '&.Mui-selected': {
-                            bgcolor: 'rgba(59, 130, 246, 0.12)',
-                            '&:hover': {
-                              bgcolor: 'rgba(59, 130, 246, 0.2)',
-                            }
-                          }
-                        }}
-                      >
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {roleError && (
-                    <FormHelperText error>{roleError}</FormHelperText>
-                  )}
-                </FormControl>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: '#6b7280', 
-                    display: 'block',
-                    mt: 0.5,
-                    fontSize: '0.7rem'
-                  }}
-                >
-                  Sélectionnez le rôle qui correspond à votre fonction
-                </Typography>
-              </Box>
+     {/* Champ Role - Version avec Select stylé */}
+<Box sx={{ mb: 2 }}>
+  <Typography
+    variant="body2"
+    sx={{
+      fontWeight: 600,
+      color: '#1e293b',
+      fontSize: '0.875rem',
+      mb: 0.5
+    }}
+  >
+    Rôle
+  </Typography>
+  <FormControl fullWidth size="small" required error={!!roleError}>
+    <Select
+      id="role"
+      name="role"
+      value={formData.role}
+      onChange={handleChange}
+      displayEmpty
+      renderValue={(selected) => {
+        if (!selected) {
+          return <span style={{ color: '#1e293b', fontWeight: 400 }}>Sélectionnez votre rôle</span>;
+        }
+        const selectedOption = roleOptions.find(opt => opt.value === selected);
+        return <span style={{ color: '#0a0e27', fontWeight: 500 }}>{selectedOption ? selectedOption.label : selected}</span>;
+      }}
+      sx={{
+        borderRadius: 1,
+        color: '#0a0e27',
+        backgroundColor: 'white',
+        '& .MuiOutlinedInput-input': {
+          py: 1,
+          fontSize: '0.9rem',
+        },
+        '& .MuiOutlinedInput-notchedOutline': {
+          borderColor: '#e5e7eb',
+        },
+        '&:hover .MuiOutlinedInput-notchedOutline': {
+          borderColor: '#cbd5e1',
+        },
+        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+          borderColor: '#3b82f6',
+        }
+      }}
+      MenuProps={{
+        PaperProps: {
+          sx: {
+            maxHeight: 300,
+            mt: 0.5,
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            borderRadius: 2,
+            bgcolor: 'white',
+          }
+        }
+      }}
+    >
+      {roleOptions.map((option) => (
+        <MenuItem 
+          key={option.value} 
+          value={option.value}
+          sx={{
+            fontSize: '0.9rem',
+            py: 1,
+            color: '#1e293b',
+            '&:hover': {
+              bgcolor: 'rgba(59, 130, 246, 0.08)',
+            },
+            '&.Mui-selected': {
+              bgcolor: 'rgba(59, 130, 246, 0.12)',
+              color: '#0a0e27',
+              fontWeight: 600,
+              '&:hover': {
+                bgcolor: 'rgba(59, 130, 246, 0.2)',
+              }
+            }
+          }}
+        >
+          {option.label}
+        </MenuItem>
+      ))}
+    </Select>
+    {roleError && (
+      <FormHelperText error>{roleError}</FormHelperText>
+    )}
+  </FormControl>
+  <Typography 
+    variant="caption" 
+    sx={{ 
+      color: '#6b7280', 
+      display: 'block',
+      mt: 0.5,
+      fontSize: '0.7rem'
+    }}
+  >
+    Sélectionnez le rôle qui correspond à votre fonction
+  </Typography>
+</Box>
 
               {/* Champ Numéro de téléphone */}
               <Box sx={{ mb: 2 }}>

@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Run the Telegram bot in polling mode (for Telegram login + alerts)'
 
+    def __init__(self):
+        super().__init__()
+        self.pending_registrations = {}
+
     def handle(self, *args, **options):
         token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
         if not token:
@@ -79,13 +83,63 @@ class Command(BaseCommand):
         if text.startswith('/start auth_'):
             code = text[len('/start auth_'):].strip()
             self._handle_auth(code, from_user, chat_id, token)
+        elif text.strip() == '/register':
+            self.pending_registrations[str(chat_id)] = True
+            self._send_message(
+                token, chat_id,
+                "Envoyez maintenant l'adresse email de votre compte SmartNotify pour lier Telegram."
+            )
         elif text.strip() in ('/start', '/aide', '/help'):
             self._send_message(
                 token, chat_id,
                 'Bonjour\u00a0! Je suis le bot SmartNotify.\n\n'
                 'Pour vous connecter, cliquez sur \u00ab\u202fContinuer avec Telegram\u202f\u00bb '
-                'sur la page de connexion et confirmez ici.'
+                'sur la page de connexion et confirmez ici.\n\n'
+                'Pour lier votre compte et recevoir les OTP Telegram, envoyez /register puis votre email SmartNotify.'
             )
+        elif self.pending_registrations.get(str(chat_id)):
+            self._handle_registration(text, from_user, chat_id, token)
+
+    # ------------------------------------------------------------------
+    def _handle_registration(self, text, from_user, chat_id, token):
+        from accounts.models import CustomUser
+
+        email = (text or '').strip().lower()
+        if not email or '@' not in email:
+            self._send_message(
+                token, chat_id,
+                "Adresse email invalide. Réessayez avec l'email utilisé dans SmartNotify."
+            )
+            return
+
+        user = CustomUser.objects.filter(email__iexact=email).first()
+        if not user:
+            self._send_message(
+                token, chat_id,
+                "Aucun compte SmartNotify trouvé avec cet email."
+            )
+            return
+
+        telegram_id = str(from_user.get('id') or chat_id).strip()
+        telegram_username = (from_user.get('username') or '').strip().lower()
+
+        user.telegram_chat_id = str(chat_id)
+        user.telegram_user_id = telegram_id
+        if telegram_username:
+            user.telegram_username = telegram_username
+        user.save(update_fields=['telegram_chat_id', 'telegram_user_id', 'telegram_username'])
+
+        self.pending_registrations.pop(str(chat_id), None)
+
+        self._send_message(
+            token, chat_id,
+            f"✅ Compte lié avec succès à {email}. Vous pouvez revenir dans SmartNotify et activer Telegram."
+        )
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Telegram linked: user={email}, chat_id={chat_id}, telegram_user_id={telegram_id}"
+            )
+        )
 
     # ------------------------------------------------------------------
     def _handle_auth(self, code, from_user, chat_id, token):

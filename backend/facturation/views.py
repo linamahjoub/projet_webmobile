@@ -75,32 +75,37 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         serializer.save(updated_by=self.request.user)
     
     def get_queryset(self):
+        user = self.request.user
         queryset = Invoice.objects.all()
-        
+
+        # Seul le superadmin voit toutes les factures
+        if not (hasattr(user, 'is_super_admin') and user.is_super_admin):
+            queryset = queryset.filter(created_by=user)
+
         # Filter by status
         status_param = self.request.query_params.get('status', None)
         if status_param:
             queryset = queryset.filter(status=status_param)
-        
+
         # Filter by type
         type_param = self.request.query_params.get('type', None)
         if type_param:
             queryset = queryset.filter(invoice_type=type_param)
-        
+
         # Filter by date range
         start_date = self.request.query_params.get('start_date', None)
         end_date = self.request.query_params.get('end_date', None)
         if start_date and end_date:
             queryset = queryset.filter(invoice_date__range=[start_date, end_date])
-        
+
         # Search by customer name or invoice number
         search = self.request.query_params.get('search', None)
         if search:
             queryset = queryset.filter(
-                Q(customer_name__icontains=search) | 
+                Q(customer_name__icontains=search) |
                 Q(invoice_number__icontains=search)
             )
-        
+
         return queryset.select_related('supplier', 'category', 'created_by', 'updated_by').prefetch_related('items', 'payments')
     
     @action(detail=False, methods=['get'])

@@ -4,7 +4,7 @@
  */
 
 export const ROLE_MENUS = {
-  // Super Admin - Accès à TOUT
+  // Admin (superuser / staff / primary) — même périmètre : tout le module stock + le reste
   super_admin: [
     'dashboard',
     'alertes',
@@ -28,19 +28,19 @@ export const ROLE_MENUS = {
     'deconnexion',
   ],
 
-  // Responsable Stock - Gère stock, catégories, entrepôts, fournisseurs
+  // Responsable Stock — tableau de bord dédié + stock + commandes (sans modules ERP / admin)
   responsable_stock: [
     'dashboard',
-    'stock',
-    'stock-movements',
-    'categories',
-    'fournisseurs',
-    'entrepots',
-    'facturation',
     'alertes',
     'notifications',
+    'stock',
+    'categories',
+    'stock-movements',
+    'fournisseurs',
+    'entrepots',
+    'orders',
+    'facturation',
     'history',
-    'admin',
     'profile',
     'settings',
     'deconnexion',
@@ -126,8 +126,8 @@ export const ROLE_MENUS = {
 export const getAuthorizedMenus = (user) => {
   if (!user) return [];
 
-  // Super Admin voit tout
-  if (user.is_super_admin || user.is_superuser || user.is_primary_admin) {
+  // Tout administrateur Django (staff / superuser / primary) voit le menu complet
+  if (user.is_super_admin || user.is_superuser || user.is_primary_admin || user.is_staff) {
     return ROLE_MENUS.super_admin;
   }
 

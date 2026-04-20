@@ -260,6 +260,21 @@ def _create_email_otp_challenge(user, purpose):
     return challenge
 
 
+def _send_telegram_login_otp(user, otp_code):
+    from smartalerte_project.telegram_utils import send_telegram_to_user
+
+    telegram_message = (
+        f"🔐 *SmartNotify - Code 2FA*\n\n"
+        f"Bonjour {user.username},\n\n"
+        f"Votre code de vérification de connexion est :\n\n"
+        f"`{otp_code}`\n\n"
+        f"⏱️ Ce code expire dans 10 minutes.\n\n"
+        f"Si vous n'êtes pas à l'origine de cette connexion, ignorez ce message."
+    )
+
+    return send_telegram_to_user(user, telegram_message)
+
+
 # ==================== AUTHENTIFICATION ====================
 
 @api_view(['POST'])
@@ -316,22 +331,108 @@ def login_view(request):
             'pending_approval': True,
         }, status=status.HTTP_403_FORBIDDEN)
 
-    # Compte actif → envoyer OTP si 2FA activé ou email non encore vérifié
+    # Compte actif → envoyer OTP selon les préférences choisies.
     if user.two_factor_enabled or not user.is_email_verified:
         try:
-            challenge = _create_email_otp_challenge(user, EmailOTPChallenge.PURPOSE_LOGIN)
-        except Exception:
-            return Response({
-                'error': "Erreur lors de l envoi du code de verification."
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            from notifications.models import NotificationChannelPreference
 
-        return Response({
-            'message': 'Code OTP envoye par email.',
-            'verification_required': True,
-            'challenge_id': str(challenge.challenge_id),
-            'email': user.email,
-            'purpose': EmailOTPChallenge.PURPOSE_LOGIN,
-        }, status=status.HTTP_200_OK)
+            prefs, _ = NotificationChannelPreference.objects.get_or_create(user=user)
+
+            requested_channels = []
+            available_channels = []
+            if prefs.email_enabled and user.email:
+                requested_channels.append('email')
+                available_channels.append('email')
+            elif prefs.email_enabled:
+                requested_channels.append('email')
+
+            if prefs.telegram_enabled and user.telegram_chat_id:
+                requested_channels.append('telegram')
+                available_channels.append('telegram')
+            elif prefs.telegram_enabled:
+                requested_channels.append('telegram')
+
+            if not available_channels:
+                if user.email:
+                    available_channels = ['email']
+                else:
+                    return Response({
+                        'error': "Aucun canal OTP n'est configuré pour ce compte."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            EmailOTPChallenge.objects.filter(
+                user=user,
+                purpose=EmailOTPChallenge.PURPOSE_LOGIN,
+                is_consumed=False,
+            ).update(is_consumed=True)
+
+            otp_code = _generate_otp_code()
+            challenge = EmailOTPChallenge.objects.create(
+                user=user,
+                otp_code=otp_code,
+                purpose=EmailOTPChallenge.PURPOSE_LOGIN,
+                channel='telegram' if available_channels == ['telegram'] else 'email',
+                expires_at=timezone.now() + timedelta(minutes=10),
+            )
+
+            delivered_channels = []
+            delivery_errors = []
+
+            if 'email' in available_channels:
+                try:
+                    _send_email_otp(user, otp_code, EmailOTPChallenge.PURPOSE_LOGIN)
+                    delivered_channels.append('email')
+                except Exception as exc:
+                    delivery_errors.append(f"email: {exc}")
+
+            if 'telegram' in available_channels:
+                try:
+                    if _send_telegram_login_otp(user, otp_code):
+                        delivered_channels.append('telegram')
+                    else:
+                        delivery_errors.append('telegram: envoi impossible')
+                except Exception as exc:
+                    delivery_errors.append(f"telegram: {exc}")
+
+            if not delivered_channels:
+                challenge.is_consumed = True
+                challenge.save(update_fields=['is_consumed'])
+
+                if requested_channels == ['telegram']:
+                    return Response({
+                        'error': "Impossible d'envoyer le code OTP par Telegram.",
+                        'details': delivery_errors or [
+                            "Vérifiez que votre compte Telegram est bien lié au bot."
+                        ],
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                return Response({
+                    'error': "Erreur lors de l'envoi du code de vérification.",
+                    'details': delivery_errors,
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            message = (
+                'Code OTP envoyé par email et Telegram.'
+                if len(delivered_channels) == 2
+                else f"Code OTP envoyé par {delivered_channels[0]}."
+            )
+
+            return Response({
+                'message': message,
+                'verification_required': True,
+                'challenge_id': str(challenge.challenge_id),
+                'channel': delivered_channels[0],
+                'channels': delivered_channels,
+                'email': user.email if 'email' in delivered_channels else None,
+                'telegram_username': user.telegram_username if 'telegram' in delivered_channels else None,
+                'purpose': EmailOTPChallenge.PURPOSE_LOGIN,
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Erreur OTP login: {e}")
+            return Response({
+                'error': "Erreur lors de l'envoi du code de vérification."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     login(request, user, backend='accounts.authentication.EmailBackend')
     refresh = RefreshToken.for_user(user)

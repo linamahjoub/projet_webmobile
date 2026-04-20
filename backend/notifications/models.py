@@ -37,7 +37,9 @@ class Notification(models.Model):
     notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, default='alert_triggered')
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
     
-    # Statut de lecture
+    # Nouveau champ pour stocker les canaux de notification choisis pour CETTE notification
+    channels = models.JSONField(default=list, blank=True, help_text="Liste des canaux choisis, ex: ['email', 'inapp']")
+
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)
     
@@ -71,9 +73,10 @@ class Notification(models.Model):
             self.save()
             return True
         return False
-    
+
     def send_email_notification(self, subject_override=None, body_override=None):
         """Envoyer la notification par email à l'utilisateur"""
+        from django.utils.html import strip_tags
         recipients = set()
 
         if self.user and self.user.email:
@@ -87,127 +90,51 @@ class Notification(models.Model):
             return False, "Aucun destinataire email"
         
         try:
-            subject_raw = subject_override if subject_override else f"SmartAlerte - {self.title}"
-            subject = subject_raw.strip() or f"SmartAlerte - {self.title}"
-
-            body_raw = body_override if body_override else self.message
-            safe_body = escape(body_raw).replace("\n", "<br>")
+            # Récupérer les données de base
+            subject_raw = getattr(self, '_email_subject', None) or subject_override
+            body_content = getattr(self, '_email_body', None) or body_override
             
-            # Créer le contenu de l'email (format professionnel)
-            html_message = f"""
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-</head>
-<body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
-    
-    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding:20px 0;">
-         <tr>
-            <td align="center">
-                
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; padding:30px; border-radius:6px;">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td align="center" style="padding-bottom:20px;">
-                            <h1 style="margin:0; color:#2c3e50;">SMARTNOTIFY</h1>
-                        </td>
-                    </tr>
+            # Fallback sur les valeurs par défaut du modèle si pas d'override
+            if not subject_raw:
+                subject_raw = f"SmartNotify - {self.title}"
+            if not body_content:
+                body_content = self.message
 
-                    <!-- Greeting -->
-                    <tr>
-                        <td style="padding-bottom:20px;">
-                            <p style="margin:0 0 10px 0;">Bonjour {self.user.first_name or self.user.username},</p>
-                            <p style="margin:0;">Vous avez reçu une nouvelle notification.</p>
-                        </td>
-                    </tr>
+            subject = subject_raw.strip()
 
-                    <!-- Divider -->
-                    <tr>
-                        <td style="padding:15px 0;">
-                            <hr style="border:none; border-top:1px solid #dddddd;">
-                        </td>
-                    </tr>
+            # Formatage du corps de texte (Plain Text PRO)
+            severity_label = dict(self.PRIORITY_CHOICES).get(self.priority, self.priority).capitalize()
+            module_label = self.alert.module.capitalize() if self.alert and self.alert.module else "Système"
+            alert_name = self.alert.name if self.alert else (self.title or "Automatique")
 
-                    <!-- Title -->
-                    <tr>
-                        <td style="padding-bottom:15px;">
-                            <h2 style="margin:0; color:#34495e;">{escape(self.title)}</h2>
-                        </td>
-                    </tr>
+            # Si le corps est personnalisé, on l'utilise tel quel en premier
+            plain_message = f"""Bonjour {self.user.username},
 
-                    <!-- Message -->
-                    <tr>
-                        <td style="padding-bottom:20px;">
-                            <p style="margin:0;">{safe_body}</p>
-                        </td>
-                    </tr>
+{body_content}
 
-                    <!-- Info Table -->
-                    <tr>
-                        <td style="padding-bottom:20px;">
-                            <table width="100%" cellpadding="8" cellspacing="0" style="background-color:#f9f9f9; border-radius:4px;">
-                                <tr>
-                                    <td width="30%"><strong>Type :</strong></td>
-                                    <td>{self.get_notification_type_display()}</td>
-                                </tr>
-                                <tr>
-                                    <td><strong>Date :</strong></td>
-                                    <td>{self.created_at.strftime('%d/%m/%Y à %H:%M')}</td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
+Détails de l'alerte :
+--------------------------------------------------
+• Nom de l'alerte    : {alert_name}
+• Module associé     : {module_label}
+• Niveau de sévérité : {severity_label}
+• État actuel        : Actif 🟢
+--------------------------------------------------
 
-                    <!-- Link -->
-                    <tr>
-                        <td style="padding-bottom:20px;">
-                            <p style="margin:0 0 10px 0;">
-                                Pour consulter cette notification, accédez à votre espace :
-                            </p>
-                            <a href="{settings.FRONTEND_URL}/notifications">
-                                {settings.FRONTEND_URL}/notifications
-                            </a>
-                        </td>
-                    </tr>
+Le système SmartNotify surveille désormais vos données. Vous pouvez gérer vos alertes ici :
+{settings.FRONTEND_URL if hasattr(settings, 'FRONTEND_URL') else 'http://localhost:3000'}/alerts
 
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding-top:20px; border-top:1px solid #eeeeee; font-size:12px; color:#777777;">
-                            <p style="margin:0 0 5px 0;">
-                                Cette notification a été générée automatiquement par le système SmartAlerte.
-                            </p>
-                            <p style="margin:0 0 5px 0;">
-                                Pour toute question, veuillez vous connecter à votre espace.
-                            </p>
-                            <p style="margin:10px 0 0 0;">
-                                © 2026 SmartNotify. Tous droits réservés.
-                            </p>
-                            <p style="margin:5px 0 0 0;">
-                                Cet email a été envoyé automatiquement. Veuillez ne pas y répondre.
-                            </p>
-                        </td>
-                    </tr>
-
-                </table>
-
-            </td>
-        </tr>
-    </table>
-
-</body>
-</html>
-            """
+Cordialement,
+L'équipe SmartNotify
+"""
             
             sent_count = send_mail(
                 subject=subject,
-                message=body_raw,  # Plain text fallback
+                message=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=list(recipients),
-                html_message=html_message,
                 fail_silently=False,
             )
+            
             if sent_count == 0:
                 return False, "Email non envoyé (SMTP)"
             return True, None
@@ -220,18 +147,35 @@ class Notification(models.Model):
         if not self.user:
             return False, "Aucun utilisateur"
 
-        message = body_override if body_override else self.message
+        body_content = body_override if body_override else self.message
+        
+        # Récupérer le titre (sujet) personnalisé s'il existe
+        title_content = self.title
+        if hasattr(self, '_email_subject') and self._email_subject:
+            title_content = self._email_subject
+
+        # Formatage PRO pour Telegram (Markdown)
+        severity_label = dict(self.PRIORITY_CHOICES).get(self.priority, self.priority).capitalize()
+        module_label = self.alert.module.capitalize() if self.alert and self.alert.module else "Système"
+        alert_name = self.alert.name if self.alert else (self.title or "Automatique")
+
         text = (
-            f"SmartNotify\n"
-            f"{self.title or 'Notification'}\n\n"
-            f"{message or ''}"
+            f"🔔 *{title_content}*\n\n"
+            f"{body_content}\n\n"
+            f"*Détails de l'alerte :*\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"• *Nom* : {alert_name}\n"
+            f"• *Module* : {module_label}\n"
+            f"• *Sévérité* : {severity_label}\n"
+            f"• *État* : Actif 🟢\n"
+            f"━━━━━━━━━━━━━━━\n\n"
+            f"🌐 [Gérer mes alertes]({settings.FRONTEND_URL if hasattr(settings, 'FRONTEND_URL') else 'http://localhost:3000'}/alerts)"
         )
 
         ok = send_telegram_to_user(self.user, text)
         if not ok:
             return False, "Telegram non envoye"
         return True, None
-
 
 class NotificationEmailRecipient(models.Model):
     """Adresse email additionnelle pour les notifications d'un utilisateur"""
