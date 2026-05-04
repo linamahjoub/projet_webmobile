@@ -321,7 +321,7 @@ const NewAlert = ({ isOpen, onClose, onSuccess }) => {
           logic: formData.conditionLogic,
           conditions: formData.conditions,
         }),
-        channels: formData.channels,
+        notification_channels: formData.channels,
         recipients: formData.recipients,
         recipient_role: formData.recipientRole,
         notif_type: formData.notifType,
@@ -330,7 +330,7 @@ const NewAlert = ({ isOpen, onClose, onSuccess }) => {
         custom_subject: formData.customSubject,
         custom_body: formData.customBody,
         product: formData.product || null,
-        category: formData.category || null,
+        categories: formData.category ? [formData.category] : [],
       };
 
       const response = await fetch("http://localhost:8000/api/alerts/", {

@@ -18,10 +18,18 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
+    lng: localStorage.getItem('i18nextLng') || 'fr',
     fallbackLng: 'fr',
-    debug: true,
+    supportedLngs: ['fr', 'en'],
+    nonExplicitSupportedLngs: true,
+    debug: false,
+    detection: {
+      order: ['localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage'],
+      lookupLocalStorage: 'i18nextLng',
+    },
     interpolation: {
-      escapeValue: false, // not needed for react as it escapes by default
+      escapeValue: false,
     },
   });
 

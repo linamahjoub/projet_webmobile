@@ -365,7 +365,7 @@ const ClientsRequests = () => {
             />
             <input
               type="text"
-              placeholder={t('searchRequest')}
+              placeholder={t('Rechercher une demande...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -428,22 +428,20 @@ const ClientsRequests = () => {
                     fontSize: "0.75rem",
                   }}
                 >
-                  {t('administrator')}
+                  {t('Administrateur')}
                 </Typography>
               </Box>
               <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  bgcolor: "#ef4444",
-                  fontWeight: 600,
-                  fontSize: "1rem",
-                }}
-              >
-                {user?.first_name?.charAt(0) ||
-                  user?.username?.charAt(0) ||
-                  "A"}
-              </Avatar>
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
             </Box>
           </Box>
         </Box>
@@ -469,7 +467,7 @@ const ClientsRequests = () => {
                   mb: 0.5,
                 }}
               >
-                {t('employeeRequests')}
+                {t('Demandes des employés')}
               </Typography>
               <Typography
                 variant="body2"
@@ -478,7 +476,7 @@ const ClientsRequests = () => {
                   fontSize: "0.95rem",
                 }}
               >
-                {t('accountCreationValidation')}
+                {t('Validation de création de compte ')}
               </Typography>
             </Box>
           </Box>
@@ -494,7 +492,7 @@ const ClientsRequests = () => {
           >
             <Chip
               label={`${t('pending')}: ${requestsData.stats.pendingCount}`}
-              onClick={() => setFilterStatus("pending")}
+              onClick={() => setFilterStatus("pending")} 
               sx={{
                 bgcolor:
                   filterStatus === "pending"
@@ -574,7 +572,7 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        {t('client')}
+                        {t('Employé')}
                       </TableCell>
                       <TableCell
                         sx={{
@@ -601,18 +599,21 @@ const ClientsRequests = () => {
                           fontSize: "0.875rem",
                         }}
                       >
-                        {t('registrationDate')}
+                        {t('Date d’inscription')}
                       </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{
-                          color: "#94a3b8",
-                          fontWeight: 600,
-                          fontSize: "0.875rem",
-                        }}
-                      >
-                        {t('actions')}
-                      </TableCell>
+                   <TableCell
+  align="left"
+  sx={{
+    color: "#94a3b8",
+    fontWeight: 600,
+    fontSize: "0.875rem",
+    verticalAlign: "top",  // ou "middle" selon votre besoin
+    width: "150px",        // fixe une largeur stable
+    whiteSpace: "nowrap",  // évite le retour à la ligne
+  }}
+>
+  {t('Actions')}
+</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -674,7 +675,7 @@ const ClientsRequests = () => {
                               )
                             }
                             label={
-                              request.is_active ? t('approved') : t('pending')
+                              request.is_active ? t('Approuvé') : t('En attente')
                             }
                             color={
                               request.is_active ? "success" : "warning"
@@ -714,7 +715,7 @@ const ClientsRequests = () => {
                                   },
                                 }}
                               >
-                                {t('approve')}
+                                {t('Approuver')}
                               </Button>
                               <Button
                                 size="small"
@@ -731,7 +732,7 @@ const ClientsRequests = () => {
                                   },
                                 }}
                               >
-                                {t('reject')}
+                                {t('Rejeter')}
                               </Button>
                             </Box>
                           )}
@@ -753,8 +754,8 @@ const ClientsRequests = () => {
               <CardContent sx={{ textAlign: "center", py: 6 }}>
                 <Typography sx={{ color: "#64748b", mb: 2 }}>
                   {searchTerm
-                    ? t('noRequestMatchesSearch')
-                    : t('noRequestStatus', { status: filterStatus === "pending" ? t('pending') : filterStatus === "approved" ? t('approved') : t('rejected') })}
+                    ? t('Aucune demande ne correspond à votre recherche')
+                    : t('Aucun statut de requête', { status: filterStatus === "En attente" ? t('En attente') : filterStatus === "approved" ? t('approved') : t('rejected') })}
                 </Typography>
               </CardContent>
             )}
@@ -790,19 +791,19 @@ const ClientsRequests = () => {
             {confirmAction === "approve" ? (
               <>
                 <CheckIcon sx={{ color: "#10b981" }} />
-                {t('approveRequest')}
+                {t('Approuver la demande')}
               </>
             ) : (
               <>
                 <CloseIcon sx={{ color: "#ef4444" }} />
-                {t('rejectRequest')}
+                {t('Rejeter la demande')}
               </>
             )}
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Typography sx={{ color: "#94a3b8", mb: 2 }}>
-            {t('areYouSureYouWantToAction', { action: confirmAction === 'approve' ? t('approve') : t('reject'), name: selectedRequest?.first_name || selectedRequest?.username })}
+            {t('Êtes-vous sûr de vouloir', { action: confirmAction === 'approve' ? t('approve') : t('reject'), name: selectedRequest?.first_name || selectedRequest?.username })}
           </Typography>
           <Alert
             severity={confirmAction === "approve" ? "success" : "warning"}
@@ -819,8 +820,8 @@ const ClientsRequests = () => {
             }}
           >
             {confirmAction === "approve"
-              ? t('clientWillReceiveConfirmation')
-              : t('clientWillReceiveNotification')}
+              ? t('L\'utilisateur recevra une confirmation')
+              : t('L\'utilisateur recevra une notification')}
           </Alert>
         </DialogContent>
         <DialogActions

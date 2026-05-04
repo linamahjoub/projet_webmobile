@@ -2,6 +2,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { openGoogleLoginPopup } from '../../services/googleOAuthConfig';
+import { useTranslation } from 'react-i18next';
 import {
   TextField,
   Button,
@@ -33,6 +34,7 @@ import { FaTelegramPlane } from "react-icons/fa";
 import notif from '../../assets/notif.png';
 
 const Login = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -50,6 +52,29 @@ const Login = () => {
       emailInputRef.current.focus();
     }
   }, []);
+
+  useEffect(() => {
+    const handleGoogleAuthMessage = (event) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      if (event.data?.type === 'google-auth-success') {
+        setLoading(false);
+        const googleUser = event.data?.payload?.user || JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdmin = googleUser?.is_superuser || googleUser?.is_staff;
+        navigate(isAdmin ? '/admin_dashboard' : '/dashboard', { replace: true });
+      }
+
+      if (event.data?.type === 'google-auth-error') {
+        setLoading(false);
+        setError(event.data?.payload?.error || t('googleLoginError'));
+      }
+    };
+
+    window.addEventListener('message', handleGoogleAuthMessage);
+    return () => window.removeEventListener('message', handleGoogleAuthMessage);
+  }, [navigate, t]);
 
   const handleTelegramSignIn = () => {
     navigate('/telegram-login');
@@ -79,12 +104,12 @@ const Login = () => {
     setEmailError('');
     
     if (!email || !password) {
-      setError('Veuillez remplir tous les champs');
+      setError(t('loginFillAllFields'));
       return;
     }
     
     if (!email.includes('@')) {
-      setError('Veuillez entrer une adresse email valide');
+      setError(t('loginValidEmail'));
       return;
     }
     
@@ -110,7 +135,7 @@ const Login = () => {
 
         if (!userData.is_active) {
           await logout();
-          setError('Compte en attente de validation. Merci de patienter avant votre premiere connexion.');
+          setError(t('accountPendingApproval'));
           return;
         }
 
@@ -122,19 +147,19 @@ const Login = () => {
           navigate('/dashboard', { replace: true });
         }
       } else {
-        const errorMessage = result.error || 'Échec de la connexion';
+        const errorMessage = result.error || t('loginFailed');
         
         if (errorMessage.includes('credentials') || errorMessage.includes('mot de passe') || errorMessage.includes('Invalid')) {
-          setError('Email ou mot de passe incorrect');
+          setError(t('invalidCredentials'));
         } else if (errorMessage.includes('disabled')) {
-          setError('Votre compte est désactivé. Contactez l\'administrateur.');
+          setError(t('accountDisabled'));
         } else {
           setError(errorMessage);
         }
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Une erreur est survenue. Veuillez réessayer.');
+      setError(t('genericRetryError'));
     } finally {
       setLoading(false);
     }
@@ -146,7 +171,7 @@ const Login = () => {
     setEmailError('');
     
     if (value && !value.includes('@')) {
-      setEmailError('Format d\'email invalide');
+      setEmailError(t('invalidEmailFormat'));
     }
   };
 
@@ -159,7 +184,7 @@ const Login = () => {
       const popup = openGoogleLoginPopup();
       
       if (!popup) {
-        setError('Impossible d\'ouvrir la fenêtre de connexion. Vérifiez les popup blockers.');
+        setError(t('popupBlocked'));
         setLoading(false);
         return;
       }
@@ -181,7 +206,7 @@ const Login = () => {
       
     } catch (error) {
       console.error('Erreur Google Sign-In:', error);
-      setError('Erreur lors de la connexion avec Google.');
+      setError(t('googleLoginError'));
       setLoading(false);
     }
   };
@@ -638,7 +663,7 @@ const Login = () => {
                   fontSize: '1.75rem',
                 }}
               >
-                Bienvenue
+                {t('welcome')}
               </Typography>
               <Typography 
                 sx={{ 
@@ -647,7 +672,7 @@ const Login = () => {
                   lineHeight: 1.6,
                 }}
               >
-                Connectez-vous à votre espace de gestion d'alertes
+                {t('loginSubtitle')}
               </Typography>
             </Box>
             
@@ -680,7 +705,7 @@ const Login = () => {
                     fontSize: '0.875rem',
                   }}
                 >
-                  Adresse email
+                  {t('emailAddress')}
                 </Typography>
                 <TextField
                   fullWidth
@@ -738,7 +763,7 @@ const Login = () => {
                       fontSize: '0.875rem',
                     }}
                   >
-                    Mot de passe
+                    {t('password')}
                   </Typography>
                   <Link to="/forgot-password" style={{ textDecoration: 'none' }}>
                     <Typography 
@@ -754,7 +779,7 @@ const Login = () => {
                         }
                       }}
                     >
-                      Mot de passe oublié ?
+                      {t('forgotPassword')}
                     </Typography>
                   </Link>
                 </Box>
@@ -814,7 +839,7 @@ const Login = () => {
                 {/* Conseils de sécurité */}
                 <Box sx={{ mt: 1, p: 1, bgcolor: '#f8fafc', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
-                    <strong>Conseil :</strong> Utilisez des mots de passe uniques pour chaque site
+                    <strong>{t('tipLabel')}</strong> {t('passwordTip')}
                   </Typography>
                 </Box>
               </Box>
@@ -832,7 +857,7 @@ const Login = () => {
                   }} 
                 />
                 <Typography variant="body2" sx={{ color: '#475569', fontSize: '0.875rem', fontWeight: 500 }}>
-                  Se souvenir de moi pendant 30 jours
+                  {t('rememberMe30Days')}
                 </Typography>
               </Box>
               
@@ -875,7 +900,7 @@ const Login = () => {
                     <span>Connexion en cours...</span>
                   </Box>
                 ) : (
-                  'Se connecter'
+                  t('signIn')
                 )}
               </Button>
               
@@ -896,7 +921,7 @@ const Login = () => {
                     letterSpacing: '0.5px',
                   }}
                 >
-                  OU CONTINUER AVEC
+                  {t('orContinueWith')}
                 </Typography>
                 <Box sx={{ flex: 1, height: '1px', bgcolor: '#e2e8f0' }} />
               </Box>
@@ -942,7 +967,7 @@ const Login = () => {
                     <span>Connexion en cours...</span>
                   </Box>
                 ) : (
-                  'Continuer avec Google'
+                  t('continueWithGoogle')
                 )}
               </Button>
 
@@ -989,7 +1014,7 @@ const Login = () => {
                     <span>Connexion en cours...</span>
                   </Box>
                 ) : (
-                  'Continuer avec Telegram'
+                  t('continueWithTelegram')
                 )}
               </Button>
             </Box>
@@ -998,7 +1023,7 @@ const Login = () => {
           {/* Lien d'inscription en dehors de la carte */}
           <Box sx={{ textAlign: 'center', mt: 3 }}>
             <Typography variant="body2" sx={{ color: '#64748b', display: 'inline', fontSize: '0.9rem' }}>
-              Pas encore de compte ?{' '}
+              {t('noAccount')}{' '}
             </Typography>
             <Link to="/register" style={{ textDecoration: 'none' }}>
               <Typography 
@@ -1016,7 +1041,7 @@ const Login = () => {
                   }
                 }}
               >
-                Créer un compte
+                {t('createAccount')}
               </Typography>
             </Link>
           </Box>

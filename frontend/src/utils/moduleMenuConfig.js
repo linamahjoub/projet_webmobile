@@ -46,6 +46,21 @@ export const ROLE_MENUS = {
     'deconnexion',
   ],
 
+  // Responsable Approvisionnement
+  responsable_appro: [
+    'dashboard',
+    'alertes',
+    'notifications',
+    'stock',
+    'fournisseurs',
+    'orders',
+    'facturation',
+    'history',
+    'profile',
+    'settings',
+    'deconnexion',
+  ],
+
   // Responsable Production - Gère production uniquement
   responsable_production: [
     'dashboard',

@@ -8,7 +8,7 @@ import requests
 from webpush import send_user_notification
 
 from alerts.models import Alert
-from notifications.models import Notification
+from notifications.models import Notification, NotificationChannelPreference
 from stock.models import Product
 from facturation.models import Invoice
 
@@ -739,17 +739,45 @@ def create_trigger_notification(alert, product, message):
         message = f"{message}\n\nCondition: {condition_txt}"
 
     title = f"Alerte déclenchée: {alert.name}"
-    Notification.objects.create(
-        user=alert.user,
-        alert=alert,
-        title=title,
-        message=message,
-        notification_type="alert_triggered",
-        priority=getattr(alert, "severity", "medium") or "medium",
-    )
+    
+    # ── Récupérer les préférences de l'utilisateur pour filtrer les canaux ──
+    prefs, _ = NotificationChannelPreference.objects.get_or_create(user=alert.user)
+    
+    # Canaux activés au niveau alerte
+    alert_channels = [str(c).strip().lower() for c in (alert.notification_channels or [])]
+    
+    final_channels = []
+    # Toujours ajouter 'inapp' SI activé dans les prefs (même s'il n'est pas dans alert_channels)
+    if prefs.in_app_enabled:
+        final_channels.append("inapp")
+    
+    # Pour les autres, il faut qu'ils soient dans l'alerte ET dans les prefs
+    if "email" in alert_channels and prefs.email_enabled:
+        final_channels.append("email")
+    
+    if "telegram" in alert_channels and prefs.telegram_enabled:
+        final_channels.append("telegram")
+        
+    if "webpush" in alert_channels:
+        final_channels.append("webpush")
 
-    channels = [str(channel).strip().lower() for channel in (alert.notification_channels or [])]
-    if "email" in channels:
+    # Si 'inapp' n'est plus dans final_channels parce que désactivé globalement,
+    # on n'envoie RIEN in-app (donc pas de Notification.objects.create pour cet utilisateur)
+
+    if "inapp" in final_channels:
+        notification = Notification(
+            user=alert.user,
+            alert=alert,
+            title=title,
+            message=message,
+            notification_type="alert_triggered",
+            priority=getattr(alert, "severity", "medium") or "medium",
+            channels=final_channels
+        )
+        notification._skip_signal = True  # Le service d'alerte a déjà envoyé email/telegram
+        notification.save()
+
+    if "email" in final_channels:
         emails = []
         if alert.user and getattr(alert.user, "email", None):
             emails.append(alert.user.email)
@@ -767,13 +795,15 @@ def create_trigger_notification(alert, product, message):
             priority=getattr(alert, "severity", "medium") or "medium",
         )
         _send_alert_email_to_recipients(alert, message)
-    if "telegram" in channels:
+        
+    if "telegram" in final_channels:
         _send_alert_telegram_to_recipients(alert, message)
-    if "webpush" in channels:
+        
+    if "webpush" in final_channels:
         payload = {
             "head": title,
             "body": message,
-            "icon": "/logo192.png" # Adjust based on your static path
+            "icon": "/logo192.png" 
         }
         send_user_notification(user=alert.user, payload=payload, ttl=1000)
 
@@ -793,17 +823,43 @@ def create_trigger_notification_for_invoice(alert, invoice, message):
         message = f"{message}\n\nCondition: {condition_txt}"
 
     title = f"Alerte déclenchée: {alert.name}"
-    Notification.objects.create(
-        user=alert.user,
-        alert=alert,
-        title=title,
-        message=message,
-        notification_type="alert_triggered",
-        priority=getattr(alert, "severity", "medium") or "medium",
-    )
+    
+    # ── Récupérer les préférences de l'utilisateur ──
+    prefs, _ = NotificationChannelPreference.objects.get_or_create(user=alert.user)
+    alert_channels = [str(c).strip().lower() for c in (alert.notification_channels or [])]
+    
+    final_channels = []
+    # 1. In-App : seulement si activé globalement ET (optionnel: si l'alerte ne l'exclut pas)
+    if prefs.in_app_enabled:
+        final_channels.append("inapp")
+    
+    # 2. Email : Alerte ET Globale
+    if "email" in alert_channels and prefs.email_enabled:
+        final_channels.append("email")
+    
+    # 3. Telegram : Alerte ET Globale
+    if ("telegram" in alert_channels or "tg" in alert_channels) and prefs.telegram_enabled:
+        final_channels.append("telegram")
+        
+    if "webpush" in alert_channels:
+        final_channels.append("webpush")
 
-    channels = [str(channel).strip().lower() for channel in (alert.notification_channels or [])]
-    if "email" in channels:
+    # Important: On crée l'objet Notification seulement si 'inapp' est dans les canaux finaux
+    if "inapp" in final_channels:
+        notification = Notification(
+            user=alert.user,
+            alert=alert,
+            title=title,
+            message=message,
+            notification_type="alert_triggered",
+            priority=getattr(alert, "severity", "medium") or "medium",
+            channels=final_channels
+        )
+        notification._skip_signal = True  # Le service d'alerte a déjà envoyé email/telegram
+        notification.save()
+
+    # L'envoi de l'email est maintenant strictement lié à final_channels
+    if "email" in final_channels:
         emails = []
         if alert.user and getattr(alert.user, "email", None):
             emails.append(alert.user.email)
@@ -812,18 +868,12 @@ def create_trigger_notification_for_invoice(alert, invoice, message):
             if "@" in rs:
                 emails.append(rs)
 
-        _create_in_app_notifications_for_emails(
-            emails=emails,
-            alert=alert,
-            title=title,
-            message=message,
-            notification_type="alert_triggered",
-            priority=getattr(alert, "severity", "medium") or "medium",
-        )
         _send_alert_email_to_recipients(alert, message)
-    if "telegram" in channels:
+        
+    if "telegram" in final_channels:
         _send_alert_telegram_to_recipients(alert, message)
-    if "webpush" in channels:
+    
+    if "webpush" in final_channels:
         payload = {
             "head": title,
             "body": message,

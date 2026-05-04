@@ -111,7 +111,7 @@ const ResetPassword = () => {
                   '&:hover': { color: '#e0e7ff', backgroundColor: 'rgba(255,255,255,0.05)' },
                 }}
               >
-                Retour a la page de connexion
+                Retour
               </Button>
             </Link>
           </Box>

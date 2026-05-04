@@ -3,6 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { exchangeCodeForToken, validateState, clearState } from '../../services/googleOAuthConfig';
 
+const GOOGLE_AUTH_SUCCESS = 'google-auth-success';
+const GOOGLE_AUTH_ERROR = 'google-auth-error';
+
 const GoogleCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -14,49 +17,69 @@ const GoogleCallback = () => {
       try {
         const code = searchParams.get('code');
         const state = searchParams.get('state');
-        const error_param = searchParams.get('error');
+        const errorParam = searchParams.get('error');
 
-        // Vérifier s'il y a une erreur de Google
-        if (error_param) {
-          setError(`Erreur Google: ${error_param}`);
+        if (errorParam) {
+          setError(`Erreur Google: ${errorParam}`);
           setLoading(false);
           return;
         }
 
         if (!code) {
-          setError('Code d\'authentification manquant');
+          setError("Code d'authentification manquant");
           setLoading(false);
           return;
         }
 
-        // Valider le state pour la protection CSRF
         if (!validateState(state)) {
-          setError('État de sécurité invalide - possible attaque CSRF');
+          setError('Etat de securite invalide - possible attaque CSRF');
           setLoading(false);
           return;
         }
 
         clearState();
 
-        // Échanger le code contre un token
         const data = await exchangeCodeForToken(code);
 
-        // Stocker les données de l'utilisateur
         localStorage.setItem('access_token', data.token);
         localStorage.setItem('refresh_token', data.refresh_token || '');
         localStorage.setItem('user', JSON.stringify(data.user));
 
-        // Redirection en fonction du rôle
-        const isAdmin = data.user?.is_superuser || data.user?.is_staff;
-        
-        if (isAdmin) {
-          navigate('/admin_dashboard', { replace: true });
-        } else {
-          navigate('/dashboard', { replace: true });
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(
+            {
+              type: GOOGLE_AUTH_SUCCESS,
+              payload: {
+                user: data.user,
+              },
+            },
+            window.location.origin
+          );
+          window.close();
+          return;
         }
+
+        const isAdmin = data.user?.is_superuser || data.user?.is_staff;
+        navigate(isAdmin ? '/admin_dashboard' : '/dashboard', { replace: true });
       } catch (err) {
         console.error('Erreur callback Google:', err);
-        setError(err.message || 'Erreur lors de la connexion avec Google');
+        const message = err.message || 'Erreur lors de la connexion avec Google';
+
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(
+            {
+              type: GOOGLE_AUTH_ERROR,
+              payload: {
+                error: message,
+              },
+            },
+            window.location.origin
+          );
+          window.close();
+          return;
+        }
+
+        setError(message);
         setLoading(false);
       }
     };
@@ -66,14 +89,16 @@ const GoogleCallback = () => {
 
   if (loading) {
     return (
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        bgcolor: '#f8fafc',
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          bgcolor: '#f8fafc',
+        }}
+      >
         <CircularProgress sx={{ mb: 2 }} />
         <Typography>Authentification en cours...</Typography>
       </Box>
@@ -82,15 +107,17 @@ const GoogleCallback = () => {
 
   if (error) {
     return (
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        bgcolor: '#f8fafc',
-        p: 3,
-      }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          bgcolor: '#f8fafc',
+          p: 3,
+        }}
+      >
         <Alert severity="error" sx={{ maxWidth: 400 }}>
           {error}
         </Alert>
@@ -101,10 +128,10 @@ const GoogleCallback = () => {
             color: '#3b82f6',
             cursor: 'pointer',
             textDecoration: 'underline',
-            '&:hover': { color: '#2563eb' }
+            '&:hover': { color: '#2563eb' },
           }}
         >
-          Retour à la connexion
+          Retour a la connexion
         </Typography>
       </Box>
     );

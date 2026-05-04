@@ -693,16 +693,16 @@ const AdminPaneau = () => {
         </Typography>
       </Box>
       <Avatar
-        sx={{
-          width: 40,
-          height: 40,
-          bgcolor: '#ef4444',
-          fontWeight: 600,
-          fontSize: '1rem',
-        }}
-      >
-        {user?.first_name?.charAt(0) || user?.username?.charAt(0) || 'A'}
-      </Avatar>
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
     </Box>
   </Box>
 </Box>

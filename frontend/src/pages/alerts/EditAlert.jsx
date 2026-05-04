@@ -254,7 +254,8 @@ const EditAlert = ({ isOpen, onClose, alert, onSuccess }) => {
         check_condition: JSON.stringify(formData.conditions),
         description: formData.description || `Alerte ${formData.name} - ${formData.conditions.length} condition(s)`,
         product: formData.product || null,
-        category: formData.category || null,
+        categories: formData.category ? [formData.category] : [],
+        notification_channels: ["email", "inapp"], // Fallback if missing
       };
 
       const response = await fetch(`http://localhost:8000/api/alerts/${alert.id}/`, {

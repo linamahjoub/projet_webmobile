@@ -385,15 +385,21 @@ const Notifications = () => {
         const myAlertsData = await myAlertsRes.json();
         const employeeAlertsData = await employeeAlertsRes.json();
 
-        setAlerts(Array.isArray(myAlertsData) ? myAlertsData : []);
-        setEmployeeAlerts(Array.isArray(employeeAlertsData) ? employeeAlertsData : []);
+        // Gérer à la fois la réponse paginée (results) et le tableau brut
+        const myAlerts = Array.isArray(myAlertsData.results) ? myAlertsData.results : Array.isArray(myAlertsData) ? myAlertsData : [];
+        const empAlerts = Array.isArray(employeeAlertsData.results) ? employeeAlertsData.results : Array.isArray(employeeAlertsData) ? employeeAlertsData : [];
+
+        setAlerts(myAlerts);
+        setEmployeeAlerts(empAlerts);
 
       } else {
         const url = "http://localhost:8000/api/alerts/";
         const res = await fetch(url, { headers: authHeaders() });
         if (!res.ok) throw new Error('Failed to fetch alerts');
         const data = await res.json();
-        setAlerts(Array.isArray(data) ? data : []);
+        // Gérer la pagination DRF : data.results contient les alertes
+        const userAlerts = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+        setAlerts(userAlerts);
         setEmployeeAlerts([]);
       }
     } catch (error) {
@@ -735,10 +741,10 @@ const Notifications = () => {
           method: "PUT",
           headers: authHeaders(),
           body: JSON.stringify({
-            email_enabled: emailEnabled,
-            in_app_enabled: inAppEnabled,
-            telegram_enabled: telegramEnabled,
-            schedule,
+            email_enabled: !!emailEnabled,
+            in_app_enabled: !!inAppEnabled,
+            telegram_enabled: !!telegramEnabled,
+            schedule: schedule || "realtime",
           }),
         });
         if (!prefsRes.ok) throw new Error();

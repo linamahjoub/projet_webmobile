@@ -60,15 +60,8 @@ def send_notification(notification):
         try:
             # Utiliser le body personnalisé pour Telegram aussi si disponible
             body = getattr(notification, '_email_body', None)
-            
+
             success, error = notification.send_telegram_notification(body_override=body)
-            if success:
-                logger.info(f"Message Telegram envoyé avec succès")
-            else:
-                logger.error(f"Échec Telegram: {error}")
-        except Exception as e:
-            logger.error(f"Exception lors de l'envoi Telegram: {e}")
-            success, error = notification.send_telegram_notification()
             if success:
                 logger.info(f"Message Telegram envoyé avec succès")
             else:

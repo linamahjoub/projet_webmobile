@@ -72,7 +72,6 @@ const ForgotPassword = () => {
           }}
         >
          
-
           {/* Main Card */}
           <Paper
             elevation={0}
@@ -85,52 +84,9 @@ const ForgotPassword = () => {
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             }}
           >
+            
             {/* Logo et nom de l'application */}
              {/* Header with back button */}
-          <Box sx={{ width: '100%', mb: 3 }}>
-            <Link to="/login" style={{ textDecoration: 'none' }}>
-              <Button
-                startIcon={<ArrowBackIcon />}
-                sx={{
-                  color: '#64748b',
-                  '&:hover': { color: '#e0e7ff', backgroundColor: 'rgba(255,255,255,0.05)' },
-                }}
-              >
-                Retour à la page de connexion
-              </Button>
-            </Link>
-          </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 4,
-                gap: 2
-              }}
-            >
-              <img
-                src={notif}
-                alt="SmartAlerte Logo"
-                width="45"
-                height="45"
-                style={{ filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.3))' }}
-              />
-              <Typography
-                variant="h5"
-                component="div"
-                sx={{
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  letterSpacing: 0.5,
-                }}
-              >
-                SmartNotify
-              </Typography>
-            </Box>
 
             {/* Titre */}
             <Typography
@@ -270,32 +226,43 @@ const ForgotPassword = () => {
               </Button>
 
               {/* Footer link */}
-              <Box
-                sx={{
-                  textAlign: 'center',
-                  pt: 2,
-                  borderTop: '1px solid #30363d',
-                }}
-              >
-                <Typography sx={{ color: '#64748b', mb: 1, fontSize: '0.9rem' }}>
-                  Vous vous souvenez de votre mot de passe?
-                </Typography>
-                <Link to="/login" style={{ textDecoration: 'none' }}>
-                  <Button
-                    sx={{
-                      color: '#60a5fa',
-                      fontWeight: 600,
-                      textTransform: 'none',
-                      '&:hover': {
-                        color: '#93c5fd',
-                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
-                      },
-                    }}
-                  >
-                    Retour à la connexion
-                  </Button>
-                </Link>
-              </Box>
+            <Box
+  sx={{
+    textAlign: 'center',
+    pt: 2,
+    borderTop: '1px solid #30363d',
+  }}
+>
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 1,
+      flexWrap: 'wrap',
+    }}
+  >
+    <Typography sx={{ color: '#64748b', fontSize: '0.9rem' }}>
+      Vous vous souvenez de votre mot de passe?
+    </Typography>
+
+    <Link to="/login" style={{ textDecoration: 'none' }}>
+      <Button
+        sx={{
+          color: '#60a5fa',
+          fontWeight: 600,
+          textTransform: 'none',
+          '&:hover': {
+            color: '#93c5fd',
+            backgroundColor: 'rgba(96, 165, 250, 0.1)',
+          },
+        }}
+      >
+        Retour à la connexion
+      </Button>
+    </Link>
+  </Box>
+</Box>
             </Box>
           </Paper>
         </Box>

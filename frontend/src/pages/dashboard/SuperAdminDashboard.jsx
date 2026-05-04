@@ -50,10 +50,240 @@ import {
   Star as StarIcon,
   Shield as ShieldIcon,
   Menu as MenuIcon,
+  PriorityHigh as PriorityHighIcon,
+  Close as CloseIcon,
+  Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import SharedSidebar from '../../components/SharedSidebar';
+
+// ─────────────────────────────────────────────
+// UrgentAlertsModal — s'affiche au login
+// ─────────────────────────────────────────────
+const UrgentAlertsModal = ({ open, onClose, alerts = [] }) => {
+  const urgentAlerts = (alerts || []).filter(
+    (a) =>
+      a.is_active === true ||
+      a.status === "active" ||
+      a.status === "ACTIVE" ||
+      a.active === true ||
+      a.type === "critical" ||
+      a.severity === "critical" ||
+      a.priority === "high"
+  );
+
+  const getSeverityColor = (alert) => {
+    if (alert.type === "critical" || alert.severity === "critical" || alert.priority === "high") return "#ef4444";
+    if (alert.type === "warning" || alert.severity === "warning") return "#f59e0b";
+    return "#3b82f6";
+  };
+
+  const getSeverityBg = (alert) => {
+    if (alert.type === "critical" || alert.severity === "critical" || alert.priority === "high")
+      return "rgba(239, 68, 68, 0.08)";
+    if (alert.type === "warning" || alert.severity === "warning")
+      return "rgba(245, 158, 11, 0.08)";
+    return "rgba(59, 130, 246, 0.08)";
+  };
+
+  const getSeverityLabel = (alert) => {
+    if (alert.type === "critical" || alert.severity === "critical") return "Critique";
+    if (alert.type === "warning" || alert.severity === "warning") return "Avertissement";
+    return "Active";
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          bgcolor: "#0a0f1a",
+          border: "1px solid rgba(239, 68, 68, 0.35)",
+          borderRadius: 3,
+          boxShadow: "0 0 60px rgba(239, 68, 68, 0.15), 0 24px 64px rgba(0,0,0,0.7)",
+          overflow: "hidden",
+        },
+      }}
+      BackdropProps={{
+        sx: { backdropFilter: "blur(6px)", backgroundColor: "rgba(0,0,0,0.75)" },
+      }}
+    >
+      {/* Header avec animation pulse */}
+      <DialogTitle sx={{ p: 0 }}>
+        <Box
+          sx={{
+            px: 3,
+            py: 2.5,
+            background: "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(15,23,42,0.6) 100%)",
+            borderBottom: "1px solid rgba(239, 68, 68, 0.2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            {/* Pulsing red dot */}
+            <Box sx={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  bgcolor: "#ef4444",
+                  "@keyframes urgentPulse": {
+                    "0%": { boxShadow: "0 0 0 0 rgba(239,68,68,0.7)" },
+                    "70%": { boxShadow: "0 0 0 10px rgba(239,68,68,0)" },
+                    "100%": { boxShadow: "0 0 0 0 rgba(239,68,68,0)" },
+                  },
+                  animation: "urgentPulse 1.5s infinite",
+                }}
+              />
+            </Box>
+            <PriorityHighIcon sx={{ color: "#ef4444", fontSize: 22 }} />
+            <Box>
+              <Typography sx={{ color: "white", fontWeight: 700, fontSize: "1rem", lineHeight: 1.2 }}>
+                Alertes urgentes
+              </Typography>
+              <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                {urgentAlerts.length} alerte{urgentAlerts.length > 1 ? "s" : ""} nécessite{urgentAlerts.length > 1 ? "nt" : ""} votre attention
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{
+              color: "#64748b",
+              "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.1)" },
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 0, maxHeight: 420, overflowY: "auto",
+        "&::-webkit-scrollbar": { width: "6px" },
+        "&::-webkit-scrollbar-track": { bgcolor: "transparent" },
+        "&::-webkit-scrollbar-thumb": { bgcolor: "rgba(239,68,68,0.3)", borderRadius: "3px" },
+      }}>
+        {urgentAlerts.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 6, px: 3 }}>
+            <CheckCircleIcon sx={{ fontSize: 48, color: "#10b981", mb: 2 }} />
+            <Typography sx={{ color: "white", fontWeight: 600, mb: 0.5 }}>Aucune alerte urgente</Typography>
+            <Typography sx={{ color: "#64748b", fontSize: "0.875rem" }}>
+              Tous les systèmes fonctionnent normalement.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {urgentAlerts.map((alert, idx) => {
+              const color = getSeverityColor(alert);
+              const bg = getSeverityBg(alert);
+              return (
+                <Box
+                  key={alert.id || idx}
+                  sx={{
+                    p: 2,
+                    bgcolor: bg,
+                    border: `1px solid ${color}30`,
+                    borderLeft: `3px solid ${color}`,
+                    borderRadius: 2,
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      bgcolor: `${bg}`,
+                      borderColor: `${color}60`,
+                      transform: "translateX(2px)",
+                    },
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.8 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <ErrorIcon sx={{ color, fontSize: 16 }} />
+                      <Typography sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
+                        {alert.name || alert.title || `Alerte #${alert.id}`}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={getSeverityLabel(alert)}
+                      size="small"
+                      sx={{
+                        bgcolor: `${color}20`,
+                        color,
+                        fontWeight: 700,
+                        fontSize: "0.65rem",
+                        height: 20,
+                        border: `1px solid ${color}40`,
+                      }}
+                    />
+                  </Box>
+
+                  {alert.module && (
+                    <Typography sx={{ color: "#64748b", fontSize: "0.75rem", mb: 0.5 }}>
+                      Module : <span style={{ color: "#94a3b8" }}>{alert.module}</span>
+                    </Typography>
+                  )}
+
+                  {(alert.message || alert.description || alert.condition) && (
+                    <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem", lineHeight: 1.5 }}>
+                      {alert.message || alert.description || alert.condition}
+                    </Typography>
+                  )}
+
+                  {alert.created_at && (
+                    <Typography sx={{ color: "#475569", fontSize: "0.72rem", mt: 0.8 }}>
+                      {new Date(alert.created_at).toLocaleString("fr-FR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: 3,
+          py: 2,
+          borderTop: "1px solid rgba(239, 68, 68, 0.15)",
+          background: "rgba(15,23,42,0.4)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Typography sx={{ color: "#475569", fontSize: "0.78rem" }}>
+          Connecté en tant que Super Administrateur
+        </Typography>
+        <Button
+          onClick={onClose}
+          variant="contained"
+          sx={{
+            bgcolor: "#ef4444",
+            color: "white",
+            fontWeight: 600,
+            fontSize: "0.85rem",
+            px: 3,
+            py: 0.8,
+            borderRadius: 2,
+            textTransform: "none",
+            "&:hover": { bgcolor: "#dc2626", boxShadow: "0 4px 16px rgba(239,68,68,0.4)" },
+          }}
+        >
+          Accéder au tableau de bord
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 const SuperAdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -63,6 +293,7 @@ const SuperAdminDashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   
   // États
+  const [openUrgentModal, setOpenUrgentModal] = useState(true);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
@@ -380,220 +611,17 @@ const SuperAdminDashboard = () => {
                 Gestion complète de tous les utilisateurs
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <Avatar sx={{ mr: 2, bgcolor: 'gold', color: '#764ba2' }}>
-                  <StarIcon />
+                <Avatar
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
                 </Avatar>
-                <Typography>
-                  Connecté en tant que: <strong>{user?.email}</strong>
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item>
-              <Button
-                variant="contained"
-                sx={{ 
-                  bgcolor: 'white', 
-                  color: '#764ba2',
-                  '&:hover': { bgcolor: '#f5f5f5' }
-                }}
-                onClick={handleLogout}
-              >
-                Déconnexion
-              </Button>
-            </Grid>
-          </Grid>
-        </Paper>
-      </Box>
-
-      {/* Cartes de statistiques */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Comptes
-              </Typography>
-              <Typography variant="h3" color="primary">
-                {stats.total}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Administrateurs
-              </Typography>
-              <Typography variant="h3" color="secondary">
-                {stats.admins}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Utilisateurs
-              </Typography>
-              <Typography variant="h3" color="info.main">
-                {stats.users}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Actifs
-              </Typography>
-              <Typography variant="h3" color="success.main">
-                {stats.active}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Actions rapides */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          ⚡ Actions Rapides
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item>
-            <Button
-              variant="contained"
-              startIcon={<PersonAddIcon />}
-              onClick={() => openAddUserDialog('user')}
-              color="primary"
-            >
-              Ajouter Utilisateur
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button
-              variant="contained"
-              startIcon={<ShieldIcon />}
-              onClick={() => openAddUserDialog('admin')}
-              color="secondary"
-            >
-              Ajouter Admin
-            </Button>
-          </Grid>
-          <Grid item>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={fetchAllUsers}
-            >
-              Actualiser
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Barre de recherche et filtres */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Rechercher par email, nom, username..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Tabs 
-              value={activeTab} 
-              onChange={(e, newValue) => setActiveTab(newValue)}
-              variant="scrollable"
-              scrollButtons="auto"
-            >
-              <Tab label={`Tous (${stats.total})`} />
-              <Tab label={`Admins (${stats.admins})`} icon={<AdminIcon />} />
-              <Tab label={`Utilisateurs (${stats.users})`} icon={<PersonIcon />} />
-              <Tab label={`Inactifs (${stats.inactive})`} icon={<CancelIcon />} />
-            </Tabs>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Tableau des utilisateurs */}
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5">
-            {activeTab === 0 ? 'Tous les Comptes' : 
-             activeTab === 1 ? 'Administrateurs' : 
-             activeTab === 2 ? 'Utilisateurs' : 'Comptes Inactifs'}
-             ({filteredUsers.length})
-          </Typography>
-          <Button
-            startIcon={<RefreshIcon />}
-            onClick={fetchAllUsers}
-            disabled={loading}
-          >
-            {loading ? 'Chargement...' : 'Actualiser'}
-          </Button>
-        </Box>
-
-        {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
-            <CircularProgress />
-          </Box>
-        ) : filteredUsers.length === 0 ? (
-          <Alert severity="info">
-            Aucun utilisateur trouvé
-          </Alert>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Utilisateur</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Statut</TableCell>
-                  <TableCell>Rôle</TableCell>
-                  <TableCell>Dernière Connexion</TableCell>
-                  <TableCell>Inscription</TableCell>
-                  <TableCell align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredUsers.map((userItem) => (
-                  <TableRow 
-                    key={userItem.id} 
-                    hover
-                    sx={{ 
-                      bgcolor: userItem.email === 'superadmin@example.com' ? '#fff8e1' : 'inherit',
-                      '&:hover': { bgcolor: userItem.email === 'superadmin@example.com' ? '#ffecb3' : '#f5f5f5' }
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" color="textSecondary">
-                        #{userItem.id}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box display="flex" alignItems="center">
-                        <Avatar sx={{ 
-                          mr: 2, 
-                          bgcolor: userItem.email === 'superadmin@example.com' ? 'gold' : 
-                                  userItem.is_superuser ? 'primary.main' : 'grey.500',
-                          color: userItem.email === 'superadmin@example.com' ? '#333' : 'white'
-                        }}>
-                          {userItem.email === 'superadmin@example.com' ? 
-                            <StarIcon /> : 
-                            userItem.first_name?.charAt(0) || userItem.username?.charAt(0)}
-                        </Avatar>
                         <Box>
                           <Typography variant="body1">
                             {userItem.first_name} {userItem.last_name}
@@ -799,6 +827,12 @@ const SuperAdminDashboard = () => {
           {successMessage}
         </Alert>
       </Snackbar>
+
+      <UrgentAlertsModal 
+        open={openUrgentModal} 
+        onClose={() => setOpenUrgentModal(false)} 
+        alerts={[]} 
+      />
     </Container>
       </Box>
     </Box>

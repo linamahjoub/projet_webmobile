@@ -380,8 +380,8 @@ const Stock = () => {
     }
     const duplicateNameExists = products.some(
       (product) =>
-        Number(product.id) !== Number(formData.id) &&
-        normalizeText(product.name) === normalizedName
+        String(product.id) !== String(formData.id) &&
+        normalizeText(product.name || "") === normalizedName
     );
     if (duplicateNameExists) {
       showAlert("Ce nom de produit existe deja. Veuillez choisir un autre nom.", "error");
@@ -654,9 +654,17 @@ const Stock = () => {
               <Typography variant="body2" sx={{ color: "white", fontWeight: 600 }}>{user?.first_name || user?.username}</Typography>
               <Typography variant="caption" sx={{ color: "#64748b" }}>{user?.is_superuser ? "Administrateur" : "Utilisateur"}</Typography>
             </Box>
-            <Avatar sx={{ width: 40, height: 40, bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6" }}>
-              {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
-            </Avatar>
+            <Avatar
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
           </Box>
         </Box>
         <Box sx={{ p: 3 }}>

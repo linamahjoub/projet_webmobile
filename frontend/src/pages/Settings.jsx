@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Container, Typography, Paper, Box, useTheme, useMediaQuery, IconButton, AppBar, Toolbar, TextField, Button, Alert, CircularProgress, InputAdornment, Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip as MuiChip, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
 import { Menu as MenuIcon, Lock as LockIcon, Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon, PersonAdd as PersonAddIcon, Edit as EditIcon, Settings as SettingsIcon, Security as SecurityIcon, Category as CategoryIcon, Notifications as NotificationsIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import SharedSidebar from '../components/SharedSidebar';
 import PillNav from '../components/PillNav';
 import Aurora from '../components/Aurora/Aurora';
 import notif from '../assets/notif.png';
+import { useLanguage } from '../context/LanguageContext';
 
 const Settings = () => {
+  const { t } = useTranslation();
+  const { language, setLanguage } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
@@ -60,20 +64,20 @@ const Settings = () => {
   // Navigation items pour la sidebar
   const navigationItems = [
     {
-      label: 'Général',
+      label: t('general'),
       href: '/settings/profile',
       icon: <BusinessIcon sx={{ fontSize: 24 }} />,
     },
   
     ...(isAdmin ? [
       {
-        label: 'Utilisateurs',
+        label: t('users'),
         href: '/settings/preferences',
         icon: <PeopleIcon sx={{ fontSize: 24 }} />,
       }
     ] : []),
     {
-      label: 'Sécurité',
+      label: t('security'),
       href: '/settings/security',
       icon: <SecurityIcon sx={{ fontSize: 24 }} />,
     }
@@ -270,15 +274,15 @@ const Settings = () => {
       setSuccessMessage('');
       const result = await updateProfile({ company: accountInfo.company });
       if (!result.success) {
-        setErrorMessage(result.error || 'Erreur lors de l\'enregistrement');
+        setErrorMessage(result.error || t('saveError'));
         return;
       }
       localStorage.setItem('settings_currency', accountInfo.currency || '');
       localStorage.setItem('settings_vat_rate', accountInfo.vatRate || '');
       localStorage.setItem('settings_stock_threshold', accountInfo.stockAlertThreshold || '');
-      setSuccessMessage('Informations du compte enregistrées');
+      setSuccessMessage(t('accountInfoSaved'));
     } catch (error) {
-      setErrorMessage('Erreur réseau lors de l\'enregistrement');
+      setErrorMessage(t('networkSaveError'));
     } finally {
       setLoading(false);
     }
@@ -861,20 +865,45 @@ const Settings = () => {
             {activeSection !== '/settings/security' && activeSection !== '/settings/preferences' && (
               <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Typography variant="h4" gutterBottom sx={{ color: 'white', mb: 3 }}>
-                  Informations du compte
+                  {t('accountInformation')}
                 </Typography>
                 <Typography variant="body1" sx={{ color: '#9ca3af', mb: 4 }}>
-                  Configurez vos informations de base
+                  {t('configureBasicInformation')}
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
+                      {t('language')}
+                    </Typography>
+                    <FormControl fullWidth>
+                      <Select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        sx={{
+                          color: '#e2e8f0',
+                          bgcolor: '#111827',
+                          borderRadius: '10px',
+                          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1f2937' },
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#374151' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+                        }}
+                      >
+                        <MenuItem value="fr">{t('fr')}</MenuItem>
+                        <MenuItem value="en">{t('en')}</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Typography variant="body2" sx={{ color: '#6b7280', mt: 1 }}>
+                      {t('languageSettingHelp')}
+                    </Typography>
+                  </Box>
                   {/* Nom de l'entreprise */}
                   <Box>
                     <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
-                      Nom de l'entreprise
+                      {t('companyName')}
                     </Typography>
                     <TextField
                       fullWidth
-                      placeholder="Entrez le nom de votre entreprise"
+                      placeholder={t('companyNamePlaceholder')}
                       value={accountInfo.company}
                       onChange={(e) => setAccountInfo({ ...accountInfo, company: e.target.value })}
                       sx={{
@@ -893,11 +922,11 @@ const Settings = () => {
                   {/* Devise */}
                   <Box>
                     <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
-                      Devise
+                      {t('currency')}
                     </Typography>
                     <TextField
                       fullWidth
-                      placeholder="EUR, USD, TND..."
+                      placeholder={t('currencyPlaceholder')}
                       value={accountInfo.currency}
                       onChange={(e) => setAccountInfo({ ...accountInfo, currency: e.target.value })}
                       sx={{
@@ -916,7 +945,7 @@ const Settings = () => {
                   {/* Taux TVA */}
                   <Box>
                     <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
-                      Taux TVA (%)
+                      {t('vatRate')}
                     </Typography>
                     <TextField
                       fullWidth
@@ -940,13 +969,13 @@ const Settings = () => {
                   {/* Seuil d'alerte stock */}
                   <Box>
                     <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
-                      Seuil d'alerte stock
+                      {t('stockAlertThreshold')}
                     </Typography>
                     <TextField
                       fullWidth
                       type="number"
                       placeholder="10"
-                      helperText="Recevez une alerte quand le stock est inférieur à cette valeur"
+                      helperText={t('stockAlertThresholdHelp')}
                       value={accountInfo.stockAlertThreshold}
                       onChange={(e) => setAccountInfo({ ...accountInfo, stockAlertThreshold: e.target.value })}
                       sx={{
@@ -984,7 +1013,7 @@ const Settings = () => {
                       mt: 2,
                     }}
                   >
-                    {loading ? <CircularProgress size={24} /> : 'Enregistrer les modifications'}
+                    {loading ? <CircularProgress size={24} /> : t('saveChanges')}
                   </Button>
                 </Box>
               </Paper>

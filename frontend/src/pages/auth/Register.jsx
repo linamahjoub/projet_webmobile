@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { openGoogleLoginPopup } from '../../services/googleOAuthConfig';
+import { useTranslation } from 'react-i18next';
 import {
   Paper,
   TextField,
@@ -41,6 +42,7 @@ import {
 import notif from '../../assets/notif.png';
 
 const Register = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { register, login, checkEmailExists, checkPasswordStrength, generatePassword } = useAuth();
 
@@ -76,12 +78,12 @@ const Register = () => {
 
   // Options pour le dropdown des rôles
   const roleOptions = [
-    { value: 'responsable_stock', label: 'Responsable Stock' },
-    { value: 'responsable_appro', label: 'Responsable appro' },
-    { value: 'commercial', label: 'Commercial' },
-    { value: 'achats', label: 'Achats' },
-    { value: 'employe', label: 'Employé' },
-    { value: 'fournisseur', label: 'Fournisseur' },
+    { value: 'responsable_stock', label: t('roleStockManager') },
+    { value: 'responsable_appro', label: t('roleApproManager') },
+    { value: 'commercial', label: t('roleSales') },
+    { value: 'achats', label: t('rolePurchasing') },
+    { value: 'employe', label: t('roleEmployee') },
+    { value: 'fournisseur', label: t('roleSupplier') },
   ];
 
   const [emailError, setEmailError] = useState('');
@@ -91,6 +93,29 @@ const Register = () => {
   const [numberError, setNumberError] = useState('');
   const [numberValidating, setNumberValidating] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    const handleGoogleAuthMessage = (event) => {
+      if (event.origin !== window.location.origin) {
+        return;
+      }
+
+      if (event.data?.type === 'google-auth-success') {
+        setGoogleLoading(false);
+        const googleUser = event.data?.payload?.user || JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdmin = googleUser?.is_superuser || googleUser?.is_staff;
+        navigate(isAdmin ? '/admin_dashboard' : '/dashboard', { replace: true });
+      }
+
+      if (event.data?.type === 'google-auth-error') {
+        setGoogleLoading(false);
+        setError(event.data?.payload?.error || 'Erreur lors de la connexion avec Google.');
+      }
+    };
+
+    window.addEventListener('message', handleGoogleAuthMessage);
+    return () => window.removeEventListener('message', handleGoogleAuthMessage);
+  }, [navigate]);
 
   // Fonction locale pour générer un mot de passe
   const generateSecurePassword = () => {
@@ -264,6 +289,12 @@ const Register = () => {
     try {
       setGoogleLoading(true);
       const popup = openGoogleLoginPopup();
+
+      if (!popup) {
+        setError('Impossible d\'ouvrir la fenêtre de connexion Google.');
+        setGoogleLoading(false);
+        return;
+      }
       
       // Monitor popup closure
       const checkPopup = setInterval(() => {

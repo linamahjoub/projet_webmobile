@@ -116,8 +116,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
         in_app_enabled = request.data.get('in_app_enabled', prefs.in_app_enabled)
         telegram_enabled = request.data.get('telegram_enabled', prefs.telegram_enabled)
         schedule = request.data.get('schedule', prefs.schedule)
-        if schedule not in {'realtime', 'hourly', 'daily', 'weekly', 'monthly'}:
-            return Response({'detail': 'Frequence invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        valid_schedules = {choice[0] for choice in NotificationChannelPreference.SCHEDULE_CHOICES}
+        if schedule not in valid_schedules:
+            return Response({'detail': f'Frequence invalide. Valeurs attendues: {", ".join(valid_schedules)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
         prefs.email_enabled = bool(email_enabled)
         prefs.in_app_enabled = bool(in_app_enabled)
         prefs.telegram_enabled = bool(telegram_enabled)

@@ -30,6 +30,14 @@ class OrderViewSet(viewsets.ModelViewSet):
     search_fields = ['customer__username', 'customer__email', 'shipping_address']
     ordering_fields = ['created_at', 'status', 'total_amount']
     ordering = ['-created_at']
+
+    def _can_manage_orders(self, user):
+        role = getattr(user, 'role', None)
+        return (
+            user.is_superuser
+            or user.is_staff
+            or role in ['responsable_stock', 'responsable_appro']
+        )
     
     def get_queryset(self):
         """Retourne les commandes selon le rôle de l'utilisateur"""
@@ -43,7 +51,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             # L'admin appro voit uniquement les commandes confirmées
             return Order.objects.select_related('customer').prefetch_related(
                 'items', 'items__product'
-            ).filter(status='confirmed')
+            ).all()
 
         if user.is_staff:
             # Les autres membres du staff (non superadmin, non appro_admin) voient tout pour le moment
@@ -84,8 +92,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         customer_name = order.customer.get_full_name().strip() or order.customer.username
         order_total = f"{order.total_amount:.2f}"
 
-        # Destinataires: client + tous les admins/staff (sans doublons).
-        admin_users = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True))
+        # Destinataires: client + utilisateurs qui gèrent les commandes (sans doublons).
+        admin_users = User.objects.filter(
+            Q(is_staff=True)
+            | Q(is_superuser=True)
+            | Q(role__in=['responsable_stock', 'responsable_appro'])
+        )
         recipients = {order.customer.id: order.customer}
         recipients.update({user.id: user for user in admin_users})
 
@@ -195,7 +207,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         
         # Vérifier les permissions
-        if not (request.user == order.customer or request.user.is_staff or request.user.is_superuser):
+        if not (request.user == order.customer or self._can_manage_orders(request.user)):
             return Response(
                 {'error': 'Vous n\'avez pas la permission d\'effectuer cette action'},
                 status=status.HTTP_403_FORBIDDEN
@@ -230,8 +242,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             ),
         )
 
-        # Admins/staff (hors acteur pour eviter le doublon de notification sur soi)
-        admin_users = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).exclude(id=actor.id)
+        # Gestionnaires de commandes (hors acteur pour eviter le doublon de notification sur soi)
+        admin_users = User.objects.filter(
+            Q(is_staff=True)
+            | Q(is_superuser=True)
+            | Q(role__in=['responsable_stock', 'responsable_appro'])
+        ).exclude(id=actor.id)
         for admin_user in admin_users:
             self._create_and_send_notification(
                 user=admin_user,
@@ -248,7 +264,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         
         # Seuls les admins peuvent passer en préparation
-        if not (request.user.is_staff or request.user.is_superuser):
+        if not self._can_manage_orders(request.user):
             return Response(
                 {'error': 'Seuls les administrateurs peuvent effectuer cette action'},
                 status=status.HTTP_403_FORBIDDEN
@@ -271,7 +287,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         
         # Seuls les admins
-        if not (request.user.is_staff or request.user.is_superuser):
+        if not self._can_manage_orders(request.user):
             return Response(
                 {'error': 'Seuls les administrateurs peuvent effectuer cette action'},
                 status=status.HTTP_403_FORBIDDEN
@@ -357,11 +373,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
         user = request.user
 
-        can_generate = (
-            user.is_staff
-            or user.is_superuser
-            or getattr(user, 'role', None) in ['responsable_stock', 'responsable_facturation']
-        )
+        can_generate = self._can_manage_orders(user) or getattr(user, 'role', None) == 'responsable_facturation'
         if not can_generate:
             return Response(
                 {'error': 'Vous n\'avez pas la permission de générer une facture'},

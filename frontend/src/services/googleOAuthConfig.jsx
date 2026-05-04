@@ -3,14 +3,29 @@
  * Utilise directement Google OAuth
  */
 
-// Configuration Google OAuth
-const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-const REDIRECT_URI = 'http://localhost:3000/auth/google/callback';
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8000/api').replace(/\/+$/, '');
+const REDIRECT_URI =
+  process.env.REACT_APP_GOOGLE_REDIRECT_URI ||
+  `${window.location.origin}/auth/google/callback`;
+const OAUTH_STATE_KEY = 'google_oauth_state';
+
+const persistState = (state) => {
+  sessionStorage.setItem(OAUTH_STATE_KEY, state);
+  localStorage.setItem(OAUTH_STATE_KEY, state);
+};
+
+const readSavedState = () =>
+  sessionStorage.getItem(OAUTH_STATE_KEY) || localStorage.getItem(OAUTH_STATE_KEY);
 
 /**
  * Génère une URL d'authentification Google OAuth 2.0
  */
 export const getGoogleAuthURL = () => {
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error('Google OAuth n\'est pas configure cote frontend.');
+  }
+
   const scope = encodeURIComponent('openid email profile');
   const responseType = 'code';
   const accessType = 'offline';
@@ -45,8 +60,6 @@ export const openGoogleLoginPopup = (width = 500, height = 600) => {
  * Échange le code d'autorisation contre un token
  */
 export const exchangeCodeForToken = async (code) => {
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-  
   const response = await fetch(`${API_URL}/auth/google-oauth-callback/`, {
     method: 'POST',
     headers: {
@@ -71,7 +84,7 @@ export const exchangeCodeForToken = async (code) => {
  */
 const generateState = () => {
   const state = Math.random().toString(36).substring(7) + Date.now().toString(36);
-  sessionStorage.setItem('oauth_state', state);
+  persistState(state);
   return state;
 };
 
@@ -79,7 +92,7 @@ const generateState = () => {
  * Valide le state récupéré depuis Google
  */
 export const validateState = (state) => {
-  const savedState = sessionStorage.getItem('oauth_state');
+  const savedState = readSavedState();
   return state === savedState;
 };
 
@@ -87,5 +100,6 @@ export const validateState = (state) => {
  * Nettoie le state de la session
  */
 export const clearState = () => {
-  sessionStorage.removeItem('oauth_state');
+  sessionStorage.removeItem(OAUTH_STATE_KEY);
+  localStorage.removeItem(OAUTH_STATE_KEY);
 };

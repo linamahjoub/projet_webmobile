@@ -394,8 +394,11 @@ const Alerts = () => {
         const myAlertsData = await myAlertsRes.json();
         const employeeAlertsData = await employeeAlertsRes.json();
 
-        setAlerts(Array.isArray(myAlertsData) ? myAlertsData : []);
-        setEmployeeAlerts(Array.isArray(employeeAlertsData) ? employeeAlertsData : []);
+        const myAlerts = Array.isArray(myAlertsData.results) ? myAlertsData.results : Array.isArray(myAlertsData) ? myAlertsData : [];
+        const empAlerts = Array.isArray(employeeAlertsData.results) ? employeeAlertsData.results : Array.isArray(employeeAlertsData) ? employeeAlertsData : [];
+
+        setAlerts(myAlerts);
+        setEmployeeAlerts(empAlerts);
 
       } else {
         // For regular users, fetch just their alerts
@@ -403,7 +406,8 @@ const Alerts = () => {
         const res = await fetch(url, { headers: authHeaders() });
         if (!res.ok) throw new Error('Failed to fetch alerts');
         const data = await res.json();
-        setAlerts(Array.isArray(data) ? data : []);
+        const userAlerts = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+        setAlerts(userAlerts);
         setEmployeeAlerts([]);
       }
     } catch (error) {

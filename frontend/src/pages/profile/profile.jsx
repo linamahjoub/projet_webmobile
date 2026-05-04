@@ -530,18 +530,16 @@ const Profile = () => {
                 <Grid item xs={12} md={3}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <Avatar
-                      sx={{
-                        width: 120,
-                        height: 120,
-                        bgcolor: isAdmin ? '#ef4444' : '#3b82f6',
-                        fontSize: '3rem',
-                        fontWeight: 700,
-                        mb: 2,
-                        border: '4px solid rgba(59, 130, 246, 0.2)',
-                      }}
-                    >
-                      {user?.first_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
-                    </Avatar>
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
                     <Box
                       sx={{
                         bgcolor: isAdmin ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',

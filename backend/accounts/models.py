@@ -146,13 +146,20 @@ class CustomUser(AbstractUser):
     @property
     def is_responsable(self):
         """Vérifie si c'est un responsable (tous types)"""
-        return self.role in ['responsable_stock', 'responsable_production', 'responsable_facturation', 'responsable_commandes']
+        return self.role in [
+            'responsable_stock',
+            'responsable_appro',
+            'responsable_production',
+            'responsable_facturation',
+            'responsable_commandes',
+        ]
     
     def get_accessible_modules(self):
         """Retourne la liste des modules accessibles selon le rôle"""
         role_modules = {
             'super_admin': ['stock', 'production', 'facturation', 'orders', 'all'],
             'responsable_stock': ['stock', 'categories', 'fournisseurs', 'entrepots'],
+            'responsable_appro': ['orders', 'fournisseurs'],
             'responsable_production': ['production'],
             'responsable_facturation': ['facturation'],
             'responsable_commandes': ['orders', 'stock'],
@@ -168,6 +175,7 @@ class CustomUser(AbstractUser):
             pages_by_role = {
                 'super_admin': ['dashboard', 'alertes', 'notifications', 'stock', 'stock-movements', 'orders', 'categories', 'fournisseurs', 'entrepots', 'facturation', 'matiere-premiere', 'ordre-production', 'produit-fini', 'modules', 'admin', 'Employes', 'history', 'profile', 'settings', 'deconnexion'],
                 'responsable_stock': ['dashboard', 'alertes', 'notifications', 'stock', 'categories', 'stock-movements', 'fournisseurs', 'entrepots', 'facturation', 'history', 'profile', 'settings', 'deconnexion'],
+                'responsable_appro': ['dashboard', 'alertes', 'notifications', 'stock', 'fournisseurs', 'orders', 'facturation', 'history', 'profile', 'settings', 'deconnexion'],
                 'responsable_production': ['dashboard', 'matiere-premiere', 'ordre-production', 'produit-fini', 'alertes', 'notifications', 'history', 'profile', 'settings', 'deconnexion'],
                 'responsable_facturation': ['dashboard', 'facturation', 'orders', 'alertes', 'notifications', 'history', 'profile', 'settings', 'deconnexion'],
                 'responsable_commandes': ['dashboard', 'orders', 'stock', 'stock-movements', 'alertes', 'notifications', 'history', 'profile', 'settings', 'deconnexion'],

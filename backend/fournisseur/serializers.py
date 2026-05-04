@@ -3,6 +3,8 @@ from .models import Supplier
 
 
 class SupplierSerializer(serializers.ModelSerializer):
+    family = serializers.CharField(source="famille", read_only=True)
+
     class Meta:
         model = Supplier
         fields = [
@@ -10,6 +12,8 @@ class SupplierSerializer(serializers.ModelSerializer):
             "name",
             "registre_commerce",
             "identifiant_fiscal",
+            "famille",
+            "family",
             "secteur",
             "anciennete",
             "contact_name",
@@ -37,3 +41,22 @@ class SupplierSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def to_internal_value(self, data):
+        if hasattr(data, "copy"):
+            data = data.copy()
+
+        family_value = data.get("family")
+        famille_value = data.get("famille")
+        secteur_value = data.get("secteur")
+
+        if family_value and not famille_value:
+            data["famille"] = family_value
+
+        if famille_value and not secteur_value:
+            data["secteur"] = famille_value
+
+        if secteur_value and not famille_value:
+            data["famille"] = secteur_value
+
+        return super().to_internal_value(data)

@@ -97,6 +97,9 @@ const StatCard = ({ label, value, color, onClick }) => {
 const Orders = () => {
   const { user } = useAuth();
   const isAdmin = user?.is_staff || user?.is_superuser;
+  const isAdminAppro = user?.role === "responsable_appro";
+  const canConfirmOrders =
+    isAdmin || user?.role === "responsable_stock" || isAdminAppro;
   const canGenerateInvoice =
     isAdmin || user?.role === "responsable_stock" || user?.role === "responsable_facturation";
   const navigate = useNavigate();
@@ -253,7 +256,7 @@ const Orders = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("access_token");
-      const url = isAdmin ? API_BASE : `${API_BASE}my_orders/`;
+      const url = canConfirmOrders ? API_BASE : `${API_BASE}my_orders/`;
       const response = await fetch(url, {
         headers: {
           Authorization: token ? `Bearer ${token}` : undefined,
@@ -613,14 +616,16 @@ ${
               </Typography>
             </Box>
             <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6",
-              }}
-            >
-              {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
-            </Avatar>
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
           </Box>
         </Box>
 
@@ -641,7 +646,7 @@ ${
                 Commandes
               </Typography>
               <Typography variant="body2" sx={{ color: "#64748b" }}>
-                {isAdmin ? "Gérez toutes les commandes" : "Consultez vos commandes"}
+                {isAdmin || isAdminAppro ? "Gérez toutes les commandes" : "Consultez vos commandes"}
               </Typography>
             </Box>
             <Box sx={{ display: "flex", gap: 1.5 }}>
@@ -659,25 +664,27 @@ ${
               >
                 <RefreshIcon />
               </IconButton>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={handleNewOrder}
-                sx={{
-                  bgcolor: "#3b82f6",
-                  color: "white",
-                  fontWeight: 600,
-                  py: 1.2,
-                  px: 3,
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontSize: "0.95rem",
-                  boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
-                  "&:hover": { bgcolor: "#2563eb" },
-                }}
-              >
-                Nouvelle commande
-              </Button>
+              {!isAdminAppro && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleNewOrder}
+                  sx={{
+                    bgcolor: "#3b82f6",
+                    color: "white",
+                    fontWeight: 600,
+                    py: 1.2,
+                    px: 3,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontSize: "0.95rem",
+                    boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
+                    "&:hover": { bgcolor: "#2563eb" },
+                  }}
+                >
+                  Nouvelle commande
+                </Button>
+              )}
             </Box>
           </Box>
 
@@ -704,12 +711,12 @@ ${
           )}
 
           {/* Pending confirmation panel */}
-          {isAdmin && pendingOrdersCount > 0 && (
+          {canConfirmOrders && pendingOrdersCount > 0 && (
             <Card
               sx={{
                 mb: 3,
                 bgcolor: "rgba(245,158,11,0.08)",
-                border: "1px solid rgba(245,158,11,0.25)",
+                border: "1px solid #F59E0B40",
                 borderRadius: 3,
               }}
             >
@@ -1413,7 +1420,7 @@ ${
           }}
         >
           <Box sx={{ display: "flex", gap: 1 }}>
-            {isAdmin && selectedOrder?.status === "pending" && (
+            {canConfirmOrders && selectedOrder?.status === "pending" && (
               <Button
                 onClick={() => handleConfirmOrder(selectedOrder.id)}
                 startIcon={<CheckIcon />}

@@ -463,7 +463,6 @@ const InnerRoutes = () => {
           </PrivateRoute>
         } />
 
-// Ajoutez cette route avec les autres routes (vers ligne 250) :
 <Route path="/employes_requests" element={
   <PrivateRoute>
     <RequireAdmin>
@@ -533,14 +532,12 @@ const InnerRoutes = () => {
   </PrivateRoute>
 } />
 
-
-<Route path="/appro/commandes" element={
-  <PrivateRoute>
-    <RequireApproManager>
-      <ApproOrders />
-    </RequireApproManager>
-  </PrivateRoute>
-} />
+   {/* Route pour les commandes */}
+        <Route path="/orders" element={
+          <PrivateRoute>
+            <Orders />
+          </PrivateRoute>
+        } />
 
 <Route path="/appro/alertes" element={
   <PrivateRoute>

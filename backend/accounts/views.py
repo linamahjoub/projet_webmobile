@@ -1337,19 +1337,22 @@ def _handle_google_user_auth(email, first_name='', last_name='', is_dev_mode=Fal
     
     try:
         # Créer ou récupérer l'utilisateur
+        base_username = email.split('@')[0]
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
-                'username': email.split('@')[0],
+                'username': _build_unique_username(base_username),
                 'first_name': first_name,
                 'last_name': last_name,
                 'is_active': True,
+                'is_email_verified': True,
             }
         )
         
         if created:
             user.first_name = first_name
             user.last_name = last_name
+            user.is_email_verified = True
             user.save()
             
             ActivityLog.objects.create(
@@ -1363,6 +1366,7 @@ def _handle_google_user_auth(email, first_name='', last_name='', is_dev_mode=Fal
                 user.first_name = first_name
             if last_name:
                 user.last_name = last_name
+            user.is_email_verified = True
             user.save()
             
             ActivityLog.objects.create(

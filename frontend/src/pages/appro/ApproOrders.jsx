@@ -97,6 +97,8 @@ const StatCard = ({ label, value, color, onClick }) => {
 const Orders = () => {
   const { user } = useAuth();
   const isAdmin = user?.is_staff || user?.is_superuser;
+  const canConfirmOrders =
+    isAdmin || user?.role === "responsable_stock" || user?.role === "responsable_appro";
   const canGenerateInvoice =
     isAdmin || user?.role === "responsable_stock" || user?.role === "responsable_facturation";
   const navigate = useNavigate();
@@ -107,7 +109,7 @@ const Orders = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("confirmed");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -613,14 +615,16 @@ ${
               </Typography>
             </Box>
             <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6",
-              }}
-            >
-              {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
-            </Avatar>
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
           </Box>
         </Box>
 
@@ -1395,7 +1399,7 @@ ${
           }}
         >
           <Box sx={{ display: "flex", gap: 1 }}>
-            {isAdmin && selectedOrder?.status === "pending" && (
+            {canConfirmOrders && selectedOrder?.status === "pending" && (
               <Button
                 onClick={() => handleConfirmOrder(selectedOrder.id)}
                 startIcon={<CheckIcon />}

@@ -47,6 +47,7 @@ import {
   LocalShipping as LocalShippingIcon, 
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
+import { useLanguage } from '../context/LanguageContext';
 
 const desktopWidth = 280;
 const collapsedWidth = 80;
@@ -55,6 +56,7 @@ const mobileWidth = 260;
 const SharedSidebar = ({ mobileOpen, onMobileClose, selectedMenu }) => {
   const { user, logout } = useAuth();
   const { t, i18n } = useTranslation();
+  const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -229,47 +231,47 @@ const SharedSidebar = ({ mobileOpen, onMobileClose, selectedMenu }) => {
 const approManagerMenus = [
   {
     id: 'dashboard',
-    label: 'Dashboard',
+    label: 'dashboard',
     icon: <DashboardIcon />,
     path: '/appro-dashboard',
   },
    {
     id: 'alertes',
-    label: 'Mes Alertes',
+    label: 'alertes',
     icon: <FlashOnIcon />,
     path: '/alerts',
   },
    {
     id: 'notifications',
-    label: 'Notifications',
+    label: 'notifications',
     icon: <NotificationsIcon />,
     path: '/notifications',
     badge: user?.unread_notifications || 0,
   },
    {
     id: 'stock',
-    label: 'Stock',
+    label: 'stock',
     icon: <InventoryIcon />,
     children: [
-      { id: 'stock-list', label: 'Liste des produits', icon: <ListIcon />, path: '/stock' },
-      { id: 'stock-new', label: 'Ajouter un produit', icon: <AddBoxIcon />, path: '/stock/new' },
+      { id: 'stock-list', label: 'stock-list', icon: <ListIcon />, path: '/stock' },
+      { id: 'stock-new', label: 'stock-new', icon: <AddBoxIcon />, path: '/stock/new' },
     ],
   },
   {
     id: 'fournisseurs',
-    label: 'Fournisseurs',
+    label: 'fournisseurs',
     icon: <PeopleIcon />,
     path: '/appro/fournisseurs',  // ← Changement ici : utiliser la route spécifique
   },
   {
     id: 'commandes_appro',
-    label: 'Commandes',
+    label: 'orders',
     icon: <ShoppingCartIcon />,
-     path: '/appro/commandes',
+    path: '/orders',
   },
   {
     id: 'livraisons',
-    label: 'Livraisons',
+    label: 'deliveries',
     icon: <LocalShippingIcon />,
     children: [
       { id: 'appro-livraisons-list', label: 'Suivi des livraisons', icon: <ListIcon />, path: '/stock-movements' },  // Changé ici
@@ -277,35 +279,35 @@ const approManagerMenus = [
   },
    {
     id: 'facturation',
-    label: 'Facturation',
+    label: 'facturation',
     icon: <ReceiptIcon />,
     children: [
-      { id: 'facturation-list', label: 'Liste des factures', icon: <ListIcon />, path: '/facturation' },
-      { id: 'facturation-new', label: 'Nouvelle facture', icon: <AddBoxIcon />, path: '/facturation/new' },
+      { id: 'facturation-list', label: 'facturation-list', icon: <ListIcon />, path: '/facturation' },
+      { id: 'facturation-new', label: 'facturation-new', icon: <AddBoxIcon />, path: '/facturation/new' },
     ],
   },
   
   {
     id: 'history',
-    label: 'Historique',
+    label: 'history',
     icon: <HistoryIcon />,
     path: '/history',
   },
   {
     id: 'profile',
-    label: 'Mon Profil',
+    label: 'profile',
     icon: <PersonIcon />,
     path: '/profile',
   },
   {
     id: 'settings',
-    label: 'Paramètres',
+    label: 'settings',
     icon: <SettingsIcon />,
     path: '/settings',
   },
   {
     id: 'deconnexion',
-    label: 'Déconnexion',
+    label: 'deconnexion',
     icon: <LogoutIcon />,
     action: handleLogout,
   },
@@ -315,7 +317,7 @@ const adminMenus = [
   // 1. Dashboard
   {
     id: 'dashboard',
-    label: 'Dashboard',
+    label: 'dashboard',
     icon: <DashboardIcon />,
     path: '/admin_dashboard',
   },
@@ -323,14 +325,14 @@ const adminMenus = [
   // 4. Mes Alertes
   {
     id: 'alertes',
-    label: 'Mes Alertes',
+    label: 'alertes',
     icon: <FlashOnIcon />,
     path: '/alerts',
   },
   // 5. Notifications
   {
     id: 'notifications',
-    label: 'Notifications',
+    label: 'notifications',
     icon: <NotificationsIcon />,
     path: '/notifications',
     badge: user?.unread_notifications || 0,
@@ -338,51 +340,51 @@ const adminMenus = [
   // 6. Stock
   {
     id: 'stock',
-    label: 'Stock',
+    label: 'stock',
     icon: <InventoryIcon />,
     children: [
-      { id: 'stock-list', label: 'Liste des produits', icon: <ListIcon />, path: '/stock' },
-      { id: 'stock-new', label: 'Ajouter un produit', icon: <AddBoxIcon />, path: '/stock/new' },
+      { id: 'stock-list', label: 'stock-list', icon: <ListIcon />, path: '/stock' },
+      { id: 'stock-new', label: 'stock-new', icon: <AddBoxIcon />, path: '/stock/new' },
     ],
   },
   // 7. Mouvements
   {
     id: 'stockMovements',
-    label: 'Mouvements',
+    label: 'stockMovements',
     icon: <SwapHorizIcon />,
     children: [
-      { id: 'movements-list', label: 'Liste des mouvements', icon: <ListIcon />, path: '/stock-movements' },
-      { id: 'movements-new', label: 'Nouveau mouvement', icon: <AddBoxIcon />, path: '/stock-movements/new' },
+      { id: 'movements-list', label: 'movements-list', icon: <ListIcon />, path: '/stock-movements' },
+      { id: 'movements-new', label: 'movements-new', icon: <AddBoxIcon />, path: '/stock-movements/new' },
     ],
   },
   // 8. Commandes
   {
     id: 'orders',
-    label: 'Commandes',
+    label: 'orders',
     icon: <ShoppingCartIcon />,
     children: [
-      { id: 'orders-list', label: 'Liste des commandes', icon: <ListIcon />, path: '/orders' },
-      { id: 'orders-new', label: 'Nouvelle commande', icon: <AddBoxIcon />, path: '/orders/new' },
+      { id: 'orders-list', label: 'orders-list', icon: <ListIcon />, path: '/orders' },
+      { id: 'orders-new', label: 'orders-new', icon: <AddBoxIcon />, path: '/orders/new' },
     ],
   },
   // 9. Catégories
   {
     id: 'categories',
-    label: 'Catégories',
+    label: 'categories',
     icon: <CategoryIcon />,
     children: [
-      { id: 'categories-list', label: 'Liste des catégories', icon: <ListIcon />, path: '/categories' },
-      { id: 'categories-new', label: 'Nouvelle catégorie', icon: <AddBoxIcon />, path: '/categories/new' },
+      { id: 'categories-list', label: 'categories-list', icon: <ListIcon />, path: '/categories' },
+      { id: 'categories-new', label: 'categories-new', icon: <AddBoxIcon />, path: '/categories/new' },
     ],
   },
   // 10. Fournisseurs
   {
     id: 'fournisseurs',
-    label: 'Fournisseurs',
+    label: 'fournisseurs',
     icon: <PeopleIcon />,
     children: [
-      { id: 'fournisseur-list', label: 'Liste des fournisseurs', icon: <ListIcon />, path: '/fournisseur' },
-      { id: 'fournisseur-new', label: 'Nouveau fournisseur', icon: <AddBoxIcon />, path: '/fournisseur/new' },
+      { id: 'fournisseur-list', label: 'fournisseur-list', icon: <ListIcon />, path: '/fournisseur' },
+      { id: 'fournisseur-new', label: 'fournisseur-new', icon: <AddBoxIcon />, path: '/fournisseur/new' },
     ],
   },
   // 11. Entrepôts
@@ -398,62 +400,62 @@ const adminMenus = [
   // 12. Facturation
   {
     id: 'facturation',
-    label: 'Facturation',
+    label: 'facturation',
     icon: <ReceiptIcon />,
     children: [
-      { id: 'facturation-list', label: 'Liste des factures', icon: <ListIcon />, path: '/facturation' },
-      { id: 'facturation-new', label: 'Nouvelle facture', icon: <AddBoxIcon />, path: '/facturation/new' },
+      { id: 'facturation-list', label: 'facturation-list', icon: <ListIcon />, path: '/facturation' },
+      { id: 'facturation-new', label: 'facturation-new', icon: <AddBoxIcon />, path: '/facturation/new' },
     ],
   },
   // 13. ERP Modules
   {
     id: 'modules',
-    label: 'ERP Modules',
+    label: 'modules',
     icon: <StorageIcon />,
     path: '/modulesERP',
   },
    // 2. Admin Panel (juste après Dashboard)
    {
     id: 'admin_panel',
-    label: 'Admin Panel',
+    label: 'admin_panel',
     icon: <AdminIcon />,
     path: '/admin_panel',
   },
   // 3. Employés (avec seulement Demandes et Ajouter, PAS Liste)
   {
     id: 'employees',
-    label: 'Employés',
+    label: 'employees',
     icon: <PeopleIcon />,
     children: [
-      { id: 'employees-requests', label: 'Demandes des employés', icon: <PersonAddIcon />, path: '/employes_requests' },
-      { id: 'employees-new', label: 'Ajouter employé', icon: <AddBoxIcon />, path: '/employees/new' },
+      { id: 'employees-requests', label: 'employees-requests', icon: <PersonAddIcon />, path: '/employes_requests' },
+      { id: 'employees-new', label: 'employees-new', icon: <AddBoxIcon />, path: '/employees/new' },
     ],
   },
   // 14. Historique
   {
     id: 'history',
-    label: 'Historique',
+    label: 'history',
     icon: <HistoryIcon />,
     path: '/history',
   },
   // 15. Mon Profil
   {
     id: 'profile',
-    label: 'Mon Profil',
+    label: 'profile',
     icon: <PersonIcon />,
     path: '/profile',
   },
   // 16. Paramètres
   {
     id: 'settings',
-    label: 'Paramètres',
+    label: 'settings',
     icon: <SettingsIcon />,
     path: '/settings',
   },
   // 17. Déconnexion
   {
     id: 'deconnexion',
-    label: 'Déconnexion',
+    label: 'deconnexion',
     icon: <LogoutIcon />,
     action: handleLogout,
   },
@@ -515,23 +517,23 @@ const adminMenus = [
 
   // Bottom nav items for mobile
   const bottomNavItems = isStockManager ? [
-    { label: 'Dashboard', icon: <DashboardIcon />, path: '/stock-dashboard' },
-    { label: 'Stock', icon: <InventoryIcon />, path: '/stock' },
-    { label: 'Alertes', icon: <FlashOnIcon />, path: '/alerts' },
-    { label: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
-    { label: 'Plus', icon: <MenuIcon />, openDrawer: true },
+    { label: 'dashboard', icon: <DashboardIcon />, path: '/stock-dashboard' },
+    { label: 'stock', icon: <InventoryIcon />, path: '/stock' },
+    { label: 'alertes', icon: <FlashOnIcon />, path: '/alerts' },
+    { label: 'notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
+    { label: 'plus', icon: <MenuIcon />, openDrawer: true },
   ] : (isAdmin ? [
-    { label: 'Dashboard', icon: <DashboardIcon />, path: '/admin_dashboard' },
-    { label: 'Admin', icon: <AdminIcon />, path: '/admin_panel' },
-    { label: 'Employés', icon: <PeopleIcon />, path: '/employees' },
-    { label: 'Alertes', icon: <FlashOnIcon />, path: '/alerts' },
-    { label: 'Plus', icon: <MenuIcon />, openDrawer: true },
+    { label: 'dashboard', icon: <DashboardIcon />, path: '/admin_dashboard' },
+    { label: 'adminShort', icon: <AdminIcon />, path: '/admin_panel' },
+    { label: 'employees', icon: <PeopleIcon />, path: '/employees' },
+    { label: 'alertes', icon: <FlashOnIcon />, path: '/alerts' },
+    { label: 'plus', icon: <MenuIcon />, openDrawer: true },
   ] : [
-    { label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { label: 'Stock', icon: <InventoryIcon />, path: '/stock' },
-    { label: 'Alertes', icon: <FlashOnIcon />, path: '/alerts' },
-    { label: 'Notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
-    { label: 'Plus', icon: <MenuIcon />, openDrawer: true },
+    { label: 'dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { label: 'stock', icon: <InventoryIcon />, path: '/stock' },
+    { label: 'alertes', icon: <FlashOnIcon />, path: '/alerts' },
+    { label: 'notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
+    { label: 'plus', icon: <MenuIcon />, openDrawer: true },
   ]);
 
   const [bottomNavValue, setBottomNavValue] = useState(() => {
@@ -691,7 +693,7 @@ const adminMenus = [
               {(!sidebarCollapsed || isMobile) && (
               <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Box
-                  onClick={() => i18n.changeLanguage(i18n.language === 'fr' ? 'en' : 'fr')}
+                  onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
                   sx={{
                     p: 0.5,
                     borderRadius: 1,
@@ -709,10 +711,10 @@ const adminMenus = [
                     minWidth: 32,
                     height: 32
                   }}
-                  title={i18n.language === 'fr' ? t('fr') : t('en')}
+                  title={language === 'fr' ? t('fr') : t('en')}
                 >
                   <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#3b82f6' }}>
-                    {i18n.language === 'fr' ? 'FR' : 'EN'}
+                    {language === 'fr' ? 'FR' : 'EN'}
                   </Typography>
                 </Box>
               </Box>
@@ -838,7 +840,7 @@ const adminMenus = [
             {bottomNavItems.map((item, index) => (
               <BottomNavigationAction
                 key={index}
-                label={item.label}
+                label={t(item.label)}
                 icon={
                   item.badge > 0 ? (
                     <Badge

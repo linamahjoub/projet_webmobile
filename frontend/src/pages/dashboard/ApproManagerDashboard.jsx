@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useActivityContext } from "../../context/ActivityContext";
 import { useNavigate } from "react-router-dom";
 import {
+  MenuItem,
   Box,
   Typography,
   Avatar,
@@ -51,11 +52,238 @@ import {
   Schedule as ScheduleIcon,
   Payment as PaymentIcon,
   TrendingUp as TrendingUpIconAlt,
+  PriorityHigh as PriorityHighIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 
 import SharedSidebar from "../../components/SharedSidebar";
 import { authFetch } from "../../utils/authFetch";
+
+// ─────────────────────────────────────────────
+// UrgentAlertsModal — s'affiche au login
+// ─────────────────────────────────────────────
+const UrgentAlertsModal = ({ open, onClose, alerts = [] }) => {
+  const urgentAlerts = (alerts || []).filter(
+    (a) =>
+      a.is_active === true ||
+      a.status === "active" ||
+      a.status === "ACTIVE" ||
+      a.active === true ||
+      a.type === "critical" ||
+      a.severity === "critical" ||
+      a.priority === "high"
+  );
+
+  const getSeverityColor = (alert) => {
+    if (alert.type === "critical" || alert.severity === "critical" || alert.priority === "high") return "#ef4444";
+    if (alert.type === "warning" || alert.severity === "warning") return "#f59e0b";
+    return "#3b82f6";
+  };
+
+  const getSeverityBg = (alert) => {
+    if (alert.type === "critical" || alert.severity === "critical" || alert.priority === "high")
+      return "rgba(239, 68, 68, 0.08)";
+    if (alert.type === "warning" || alert.severity === "warning")
+      return "rgba(245, 158, 11, 0.08)";
+    return "rgba(59, 130, 246, 0.08)";
+  };
+
+  const getSeverityLabel = (alert) => {
+    if (alert.type === "critical" || alert.severity === "critical") return "Critique";
+    if (alert.type === "warning" || alert.severity === "warning") return "Avertissement";
+    return "Active";
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          bgcolor: "#0a0f1a",
+          border: "1px solid rgba(239, 68, 68, 0.35)",
+          borderRadius: 3,
+          boxShadow: "0 0 60px rgba(239, 68, 68, 0.15), 0 24px 64px rgba(0,0,0,0.7)",
+          overflow: "hidden",
+        },
+      }}
+      BackdropProps={{
+        sx: { backdropFilter: "blur(6px)", backgroundColor: "rgba(0,0,0,0.75)" },
+      }}
+    >
+      <DialogTitle sx={{ p: 0 }}>
+        <Box
+          sx={{
+            px: 3,
+            py: 2.5,
+            background: "linear-gradient(135deg, rgba(239,68,68,0.15) 0%, rgba(15,23,42,0.6) 100%)",
+            borderBottom: "1px solid rgba(239, 68, 68, 0.2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box sx={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  bgcolor: "#ef4444",
+                  "@keyframes urgentPulse": {
+                    "0%": { boxShadow: "0 0 0 0 rgba(239,68,68,0.7)" },
+                    "70%": { boxShadow: "0 0 0 10px rgba(239,68,68,0)" },
+                    "100%": { boxShadow: "0 0 0 0 rgba(239,68,68,0)" },
+                  },
+                  animation: "urgentPulse 1.5s infinite",
+                }}
+              />
+            </Box>
+            <PriorityHighIcon sx={{ color: "#ef4444", fontSize: 22 }} />
+            <Box>
+              <Typography sx={{ color: "white", fontWeight: 700, fontSize: "1rem", lineHeight: 1.2 }}>
+                Alertes urgentes
+              </Typography>
+              <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                {urgentAlerts.length} alerte{urgentAlerts.length > 1 ? "s" : ""} nécessite{urgentAlerts.length > 1 ? "nt" : ""} votre attention
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            sx={{
+              color: "#64748b",
+              "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.1)" },
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 0, maxHeight: 420, overflowY: "auto",
+        "&::-webkit-scrollbar": { width: "6px" },
+        "&::-webkit-scrollbar-track": { bgcolor: "transparent" },
+        "&::-webkit-scrollbar-thumb": { bgcolor: "rgba(239,68,68,0.3)", borderRadius: "3px" },
+      }}>
+        {urgentAlerts.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 6, px: 3 }}>
+            <CheckCircleIcon sx={{ fontSize: 48, color: "#10b981", mb: 2 }} />
+            <Typography sx={{ color: "white", fontWeight: 600, mb: 0.5 }}>Aucune alerte urgente</Typography>
+            <Typography sx={{ color: "#64748b", fontSize: "0.875rem" }}>
+              Tous les systèmes fonctionnent normalement.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {urgentAlerts.map((alert, idx) => {
+              const color = getSeverityColor(alert);
+              const bg = getSeverityBg(alert);
+              return (
+                <Box
+                  key={alert.id || idx}
+                  sx={{
+                    p: 2,
+                    bgcolor: bg,
+                    border: `1px solid ${color}30`,
+                    borderLeft: `3px solid ${color}`,
+                    borderRadius: 2,
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      bgcolor: `${bg}`,
+                      borderColor: `${color}60`,
+                      transform: "translateX(2px)",
+                    },
+                  }}
+                >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.8 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <ErrorIcon sx={{ color, fontSize: 16 }} />
+                      <Typography sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
+                        {alert.name || alert.title || `Alerte #${alert.id}`}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={getSeverityLabel(alert)}
+                      size="small"
+                      sx={{
+                        bgcolor: `${color}20`,
+                        color,
+                        fontWeight: 700,
+                        fontSize: "0.65rem",
+                        height: 20,
+                        border: `1px solid ${color}40`,
+                      }}
+                    />
+                  </Box>
+
+                  {alert.module && (
+                    <Typography sx={{ color: "#64748b", fontSize: "0.75rem", mb: 0.5 }}>
+                      Module : <span style={{ color: "#94a3b8" }}>{alert.module}</span>
+                    </Typography>
+                  )}
+
+                  {(alert.message || alert.description || alert.condition) && (
+                    <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem", lineHeight: 1.5 }}>
+                      {alert.message || alert.description || alert.condition}
+                    </Typography>
+                  )}
+
+                  {alert.created_at && (
+                    <Typography sx={{ color: "#475569", fontSize: "0.72rem", mt: 0.8 }}>
+                      {new Date(alert.created_at).toLocaleString("fr-FR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: 3,
+          py: 2,
+          borderTop: "1px solid rgba(239, 68, 68, 0.15)",
+          background: "rgba(15,23,42,0.4)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Typography sx={{ color: "#475569", fontSize: "0.78rem" }}>
+          Connecté en tant que Gestionnaire d'Approvisionnement
+        </Typography>
+        <Button
+          onClick={onClose}
+          variant="contained"
+          sx={{
+            bgcolor: "#ef4444",
+            color: "white",
+            fontWeight: 600,
+            fontSize: "0.85rem",
+            px: 3,
+            py: 0.8,
+            borderRadius: 2,
+            textTransform: "none",
+            "&:hover": { bgcolor: "#dc2626", boxShadow: "0 4px 16px rgba(239,68,68,0.4)" },
+          }}
+        >
+          Accéder au tableau de bord
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 // ─────────────────────────────────────────────
 // Order Activity Chart (Canvas)
@@ -313,11 +541,13 @@ const ApproManagerDashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [avatarMenuAnchorEl, setAvatarMenuAnchorEl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
   const [notifMenuPage, setNotifMenuPage] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [openUrgentModal, setOpenUrgentModal] = useState(true);
   const [ordersPage, setOrdersPage] = useState(1);
 
   // Data states
@@ -347,7 +577,6 @@ const ApproManagerDashboard = () => {
       const data = await res.json();
       console.log(`✅ Données reçues de ${p}:`, data);
       
-      // Gérer différents formats de réponse
       if (Array.isArray(data)) {
         return data;
       } else if (data.results && Array.isArray(data.results)) {
@@ -359,7 +588,6 @@ const ApproManagerDashboard = () => {
       } else if (data.orders && Array.isArray(data.orders)) {
         return data.orders;
       } else if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-        // Si c'est un objet unique, le mettre dans un tableau
         if (data.id || data.name) {
           return [data];
         }
@@ -378,7 +606,6 @@ const ApproManagerDashboard = () => {
     try {
       console.log("🔍 Tentative de récupération des commandes...");
       
-      // Essayer plusieurs endpoints possibles
       const endpoints = [
         "/appro/commandes/",
         "/commandes/",
@@ -396,7 +623,6 @@ const ApproManagerDashboard = () => {
         }
       }
       
-      // Si aucun endpoint ne fonctionne, essayer avec des données mockées pour le test
       console.warn("⚠️ Aucune commande trouvée, utilisation de données mockées pour le test");
       return [
         {
@@ -436,12 +662,10 @@ const ApproManagerDashboard = () => {
         setDataFetchError(null);
         console.log("🚀 Début du chargement des données...");
         
-        // Récupérer les commandes séparément avec plus de logs
         const ords = await fetchOrders();
         console.log("📊 Commandes finales:", ords.length, ords);
         setOrders(ords);
         
-        // Récupérer le reste des données
         const [supps, cats, dels, invs, alts, notifs] = await Promise.all([
           fetchWithAuthImproved("/fournisseurs/"),
           fetchWithAuthImproved("/categories/"),
@@ -800,19 +1024,63 @@ const ApproManagerDashboard = () => {
                   <NotificationsIcon />
                 </Badge>
               </IconButton>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Box sx={{ textAlign: "left", display: { xs: "none", sm: "block" } }}>
-                  <Typography variant="body2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
-                    {user?.first_name && user?.last_name ? `${user.first_name} ${user.last_name}` : user?.username}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.7rem" }}>
-                    Responsable Approvisionnement
-                  </Typography>
-                </Box>
+              
+              {/* Avatar avec AA pour Responsable Approvisionnement - FIXED */}
+              <Box
+                onClick={(e) => setAvatarMenuAnchorEl(e.currentTarget)}
+                sx={{
+                  display: "flex", alignItems: "center", gap: 1,
+                  cursor: "pointer", px: 1, py: 0.5, borderRadius: 2,
+                  "&:hover": { bgcolor: "rgba(255,255,255,0.06)" },
+                }}
+              >
+                <Avatar
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </Box>
-              <Avatar sx={{ width: 36, height: 36, bgcolor: "#8b5cf6", fontWeight: 600, fontSize: "0.95rem" }}>
-                {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "A"}
-              </Avatar>
+
+              {/* Menu de l'avatar */}
+              <Menu
+                anchorEl={avatarMenuAnchorEl}
+                open={Boolean(avatarMenuAnchorEl)}
+                onClose={() => setAvatarMenuAnchorEl(null)}
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+                PaperProps={{
+                  sx: {
+                    mt: 1, minWidth: 180,
+                    bgcolor: "white",
+                    border: "1px solid #00000014",
+                    borderRadius: 2,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                    overflow: "hidden",
+                  },
+                }}
+              >
+                <MenuItem
+                  onClick={() => { setAvatarMenuAnchorEl(null); navigate("/profile"); }}
+                  sx={{ color: "#1e293b", fontSize: "0.95rem", py: 1.5, px: 2.5, "&:hover": { bgcolor: "#00000014" } }}
+                >
+                  Mon compte
+                </MenuItem>
+                <MenuItem
+                  onClick={() => { setAvatarMenuAnchorEl(null); navigate("/logout") }}
+                  sx={{ color: "#1e293b", fontSize: "0.95rem", py: 1.5, px: 2.5, "&:hover": { bgcolor: "#00000014" } }}
+                >
+                  Se déconnecter
+                </MenuItem>
+              </Menu>
             </Box>
           </Box>
         </Box>
@@ -830,7 +1098,6 @@ const ApproManagerDashboard = () => {
         {/* ── Dashboard content ── */}
         <Box sx={{ width: "100%", px: 2, pt: 3, pb: { xs: 10, md: 6 }, boxSizing: "border-box" }}>
 
-          {/* Message d'erreur si nécessaire */}
           {errorMessage && (
             <Alert severity="warning" sx={{ mb: 3, bgcolor: "rgba(245, 158, 11, 0.1)", color: "#f59e0b" }}>
               {errorMessage}
@@ -919,7 +1186,6 @@ const ApproManagerDashboard = () => {
             ))}
           </Box>
 
-    
           {/* ── Row 1: Commandes Récentes + Activité des Commandes (Chart) ── */}
           <Box sx={{ display: "flex", width: "100%", gap: 2, mb: 3, alignItems: "stretch", flexWrap: { xs: "wrap", md: "nowrap" } }}>
             {/* Liste des Commandes Récentes */}
@@ -1147,7 +1413,6 @@ const ApproManagerDashboard = () => {
                       </Box>
                     )}
                     
-                    {/* Livraisons en retard */}
                     {lateDeliveries > 0 && (
                       <Paper sx={{ p: 2, bgcolor: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 2 }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -1162,7 +1427,8 @@ const ApproManagerDashboard = () => {
                 </CardContent>
               </Card>
             </Box>
- {/* Top Fournisseurs */}
+
+            {/* Top Fournisseurs */}
             <Box sx={{ flex: "1 1 100%" }}>
               <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3 }}>
                 <CardContent sx={{ p: 3 }}>
@@ -1222,10 +1488,9 @@ const ApproManagerDashboard = () => {
            
           </Box>
 
-          {/* ── Row 3: Top Fournisseurs ── */}
+          {/* ── Row 3: Mes activités récentes ── */}
           <Box sx={{ display: "flex", width: "100%", gap: 2, mb: 3, alignItems: "stretch", flexWrap: { xs: "wrap", md: "nowrap" } }}>
-            {/* Mes activités récentes */}
-            <Box sx={{ flex: { xs: "1 1 100%", md: "0 0 calc(50% - 8px)" }, maxWidth: { xs: "100%", md: "calc(50% - 8px)" }, minWidth: 0 }}>
+            <Box sx={{ flex: "1 1 100%" }}>
               <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
@@ -1311,7 +1576,6 @@ const ApproManagerDashboard = () => {
                     )}
                   </Box>
 
-                  {/* Indicateur de chargement des activités */}
                   {recentActivity.length === 0 && (
                     <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
                       <CircularProgress size={24} sx={{ color: "#3b82f6" }} />
@@ -1372,8 +1636,6 @@ const ApproManagerDashboard = () => {
               </CardContent>
             </Card>
           )}
-
-          {/* ── Fin du contenu ── */}
           
         </Box>
 
@@ -1440,6 +1702,12 @@ const ApproManagerDashboard = () => {
         <Snackbar open={!!errorMessage} autoHideDuration={3000} onClose={() => setErrorMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
           <Alert severity="error" sx={{ width: "100%", bgcolor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>{errorMessage}</Alert>
         </Snackbar>
+
+        <UrgentAlertsModal 
+          open={openUrgentModal} 
+          onClose={() => setOpenUrgentModal(false)} 
+          alerts={alerts} 
+        />
       </Box>
     </Box>
   );

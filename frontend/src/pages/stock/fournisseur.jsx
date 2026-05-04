@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  Grid,
   Card,
   CardContent,
   Avatar,
@@ -34,7 +33,6 @@ import {
   Tooltip,
   Divider,
   Switch,
-  FormControlLabel,
 } from "@mui/material";
 import {
   Business as BusinessIcon,
@@ -50,6 +48,69 @@ import {
 } from "@mui/icons-material";
 import { CiFilter } from "react-icons/ci";
 import SharedSidebar from "../../components/SharedSidebar";
+
+// Fonctions utilitaires pour la famille
+const getFamilyLabel = (family) => {
+  const familyMap = {
+    'matiere_premiere': 'Matière première',
+    'matiere_consommable': 'Matière consommable',
+    'matiere_emballage': 'Matière emballage',
+    'matiere_chimique': 'Matière chimique',
+    'matiere_dangereuse': 'Matière dangereuse',
+    'fourniture_bureau': 'Fournitures bureau',
+  };
+  return familyMap[family] || '-';
+};
+
+const getFamilyColor = (family) => {
+  const colorMap = {
+    'matiere_premiere': '#3b82f6',
+    'matiere_consommable': '#10b981',
+    'matiere_emballage': '#f59e0b',
+    'matiere_chimique': '#8b5cf6',
+    'matiere_dangereuse': '#ef4444',
+    'fourniture_bureau': '#06b6d4',
+  };
+  return colorMap[family] || '#64748b';
+};
+
+const familyOptions = [
+  { value: "matiere_premiere", label: "Matière première" },
+  { value: "matiere_consommable", label: "Matière consommable" },
+  { value: "matiere_emballage", label: "Matière emballage" },
+  { value: "matiere_chimique", label: "Matière chimique" },
+  { value: "matiere_dangereuse", label: "Matière dangereuse" },
+  { value: "fourniture_bureau", label: "Fournitures bureau" },
+];
+
+const defaultSupplierForm = {
+  id: null,
+  name: "",
+  registre_commerce: "",
+  identifiant_fiscal: "",
+  famille: "",
+  secteur: "",
+  anciennete: "",
+  contact_name: "",
+  email: "",
+  phone: "",
+  address: "",
+  city: "",
+  country: "",
+  prix_unitaire: "",
+  conditions_paiement: "",
+  remise: "",
+  zone_couverture: "",
+  minimum_commande: "",
+  delai_livraison: "",
+  certifications: "",
+  garantie_sav: "",
+  references_clients: "",
+  capacite_production: "",
+  is_active: true,
+  note_globale: 3,
+  commentaires: "",
+};
 
 /* ─── StatCard ───────────────────────────────────────────────────────────────────────────────── */
 const StatCard = ({ label, value, color, onClick }) => {
@@ -101,7 +162,8 @@ const Fournisseur = () => {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all"); // Ajouter le state pour le filtre
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterFamily, setFilterFamily] = useState("");
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -110,17 +172,7 @@ const Fournisseur = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
-    id: null,
-    name: "",
-    contact_name: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    country: "",
-    is_active: true,
-  });
+  const [formData, setFormData] = useState(defaultSupplierForm);
 
   const [suppliers, setSuppliers] = useState([]);
 
@@ -129,26 +181,60 @@ const Fournisseur = () => {
   const mapFromApi = (item) => ({
     id: item.id,
     name: item.name || "",
+    registre_commerce: item.registre_commerce || "",
+    identifiant_fiscal: item.identifiant_fiscal || "",
+    famille: item.famille || item.family || "",
+    secteur: item.secteur || item.famille || item.family || "",
+    anciennete: item.anciennete || "",
     contact_name: item.contact_name || "",
     email: item.email || "",
     phone: item.phone || "",
     address: item.address || "",
     city: item.city || "",
     country: item.country || "",
+    prix_unitaire: item.prix_unitaire || "",
+    conditions_paiement: item.conditions_paiement || "",
+    remise: item.remise || "",
+    zone_couverture: item.zone_couverture || "",
+    minimum_commande: item.minimum_commande || "",
+    delai_livraison: item.delai_livraison || "",
+    certifications: item.certifications || "",
+    garantie_sav: item.garantie_sav || "",
+    references_clients: item.references_clients || "",
+    capacite_production: item.capacite_production || "",
     is_active: Boolean(item.is_active),
+    note_globale: item.note_globale || 3,
+    commentaires: item.commentaires || "",
     created_at: item.created_at || null,
     updated_at: item.updated_at || null,
   });
 
   const mapToApi = (item) => ({
     name: item.name,
+    registre_commerce: item.registre_commerce,
+    identifiant_fiscal: item.identifiant_fiscal,
+    famille: item.famille || item.secteur,
+    secteur: item.secteur || item.famille,
+    anciennete: item.anciennete,
     contact_name: item.contact_name,
     email: item.email,
     phone: item.phone,
     address: item.address,
     city: item.city,
     country: item.country,
+    prix_unitaire: item.prix_unitaire,
+    conditions_paiement: item.conditions_paiement,
+    remise: parseFloat(String(item.remise || "").replace("%", "")) || 0,
+    zone_couverture: item.zone_couverture,
+    minimum_commande: item.minimum_commande,
+    delai_livraison: item.delai_livraison,
+    certifications: item.certifications,
+    garantie_sav: item.garantie_sav,
+    references_clients: item.references_clients,
+    capacite_production: item.capacite_production,
     is_active: item.is_active,
+    note_globale: parseInt(item.note_globale, 10) || 3,
+    commentaires: item.commentaires,
   });
 
   const fetchSuppliers = async () => {
@@ -188,17 +274,7 @@ const Fournisseur = () => {
     }
   }, [location.pathname]);
 
-  const emptyForm = {
-    id: null,
-    name: "",
-    contact_name: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    country: "",
-    is_active: true,
-  };
+  const emptyForm = defaultSupplierForm;
 
   const handleOpenAddDialog = (supplier = null) => {
     setFormData(supplier ? { ...supplier } : emptyForm);
@@ -276,21 +352,15 @@ const Fournisseur = () => {
   };
 
   const handleToggleStatus = async (supplier) => {
-    console.log("Toggle status appelé pour:", supplier);
-    console.log("Valeur actuelle de is_active:", supplier.is_active);
-    
     const newStatus = !Boolean(supplier.is_active);
-    console.log("Nouveau statut:", newStatus);
     
     try {
-      // Mise à jour optimiste de l'interface
       setSuppliers(prev => prev.map(s => 
         s.id === supplier.id ? { ...s, is_active: newStatus } : s
       ));
 
       const token = localStorage.getItem('access_token');
       const payload = mapToApi({ ...supplier, is_active: newStatus });
-      console.log("Envoi du payload:", payload);
       
       const res = await fetch(`${API_BASE}${supplier.id}/`, {
         method: 'PUT',
@@ -301,23 +371,16 @@ const Fournisseur = () => {
         body: JSON.stringify(payload),
       });
 
-      console.log("Réponse du serveur:", res.status);
-      
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.error("Erreur API:", errorData);
-        // Annuler la mise à jour optimiste en cas d'erreur
         setSuppliers(prev => prev.map(s => 
           s.id === supplier.id ? { ...s, is_active: Boolean(supplier.is_active) } : s
         ));
         throw new Error(errorData.message || 'Erreur lors de la modification du statut');
       }
 
-      const responseData = await res.json();
-      console.log("Réponse complète:", responseData);
       setSuccessMessage(`Fournisseur ${newStatus ? 'activé' : 'désactivé'} avec succès`);
     } catch (err) {
-      console.error("Erreur complète:", err);
       setErrorMessage(`Erreur: ${err.message}`);
     }
   };
@@ -340,7 +403,8 @@ const Fournisseur = () => {
       s.email.toLowerCase().includes(q) ||
       s.phone.toLowerCase().includes(q) ||
       s.city.toLowerCase().includes(q) ||
-      s.country.toLowerCase().includes(q)
+      s.country.toLowerCase().includes(q) ||
+      ((s.famille || s.family) && getFamilyLabel(s.famille || s.family).toLowerCase().includes(q))
     );
     
     const matchesStatus = 
@@ -348,7 +412,9 @@ const Fournisseur = () => {
       (filterStatus === "active" && s.is_active) ||
       (filterStatus === "inactive" && !s.is_active);
     
-    return matchesSearch && matchesStatus;
+    const matchesFamily = !filterFamily || s.famille === filterFamily;
+    
+    return matchesSearch && matchesStatus && matchesFamily;
   });
 
   const stats = {
@@ -358,9 +424,9 @@ const Fournisseur = () => {
   };
 
   const statCards = [
-    { label: "Total fournisseurs", value: stats.totalSuppliers, accent: "#3b82f6", onClick: () => setFilterStatus("all") },
-    { label: "Actifs", value: stats.activeSuppliers, accent: "#10b981", onClick: () => setFilterStatus("active") },
-    { label: "Inactifs", value: stats.inactiveSuppliers, accent: "#ef4444", onClick: () => setFilterStatus("inactive") },
+    { label: "Total fournisseurs", value: stats.totalSuppliers, accent: "#3b82f6", onClick: () => { setFilterStatus("all"); setFilterFamily(""); } },
+    { label: "Actifs", value: stats.activeSuppliers, accent: "#10b981", onClick: () => { setFilterStatus("active"); setFilterFamily(""); } },
+    { label: "Inactifs", value: stats.inactiveSuppliers, accent: "#ef4444", onClick: () => { setFilterStatus("inactive"); setFilterFamily(""); } },
   ];
 
   const statusOptions = [
@@ -369,7 +435,7 @@ const Fournisseur = () => {
     { value: "inactive", label: "Inactifs" },
   ];
 
-  const activeFiltersCount = filterStatus !== "all" ? 1 : 0;
+  const activeFiltersCount = (filterStatus !== "all" ? 1 : 0) + (filterFamily ? 1 : 0);
 
   const menuItemSx = (active) => ({
     px: 2, py: 0.8,
@@ -436,9 +502,17 @@ const Fournisseur = () => {
                 {user?.is_superuser ? "Administrateur" : "Utilisateur"}
               </Typography>
             </Box>
-            <Avatar sx={{ width: 40, height: 40, bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6" }}>
-              {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
-            </Avatar>
+            <Avatar
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
           </Box>
         </Box>
 
@@ -449,7 +523,7 @@ const Fournisseur = () => {
                 Gestion des fournisseurs
               </Typography>
               <Typography variant="body2" sx={{ color: "#64748b" }}>
-                Gelez et suivez vos fournisseurs
+                Gérez et suivez vos fournisseurs
               </Typography>
             </Box>
             <Box sx={{ display: "flex", gap: 1.5 }}>
@@ -504,7 +578,7 @@ const Fournisseur = () => {
             </Tooltip>
 
             <TextField
-              placeholder="Rechercher par nom, contact, email, ville..."
+              placeholder="Rechercher par nom, contact, email, ville, famille..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
@@ -533,12 +607,22 @@ const Fournisseur = () => {
           {activeFiltersCount > 0 && (
             <Box sx={{ display: "flex", gap: 1, mb: 2.5, flexWrap: "wrap", alignItems: "center" }}>
               {filterStatus !== "all" && (
-                <Chip label={statusOptions.find((s) => s.value === filterStatus)?.label}
-                  onDelete={() => setFilterStatus("all")} size="small"
+                <Chip 
+                  label={statusOptions.find((s) => s.value === filterStatus)?.label}
+                  onDelete={() => setFilterStatus("all")} 
+                  size="small"
                   sx={{ bgcolor: "rgba(59,130,246,0.15)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)", fontWeight: 500 }}
                 />
               )}
-              <Button size="small" onClick={() => setFilterStatus("all")}
+              {filterFamily && (
+                <Chip 
+                  label={`Famille: ${getFamilyLabel(filterFamily)}`}
+                  onDelete={() => setFilterFamily("")} 
+                  size="small"
+                  sx={{ bgcolor: "rgba(59,130,246,0.15)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)", fontWeight: 500 }}
+                />
+              )}
+              <Button size="small" onClick={() => { setFilterStatus("all"); setFilterFamily(""); }}
                 sx={{ color: "#94a3b8", fontSize: "0.75rem", textTransform: "none", py: 0, minHeight: 0, "&:hover": { color: "#ef4444" } }}
               >
                 Tout effacer
@@ -551,8 +635,8 @@ const Fournisseur = () => {
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "rgba(59,130,246,0.05)", borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
-                    {["Fournisseur", "Contact", "Email", "Telephone", "Ville", "Pays", "Statut", "Actions"].map((h, i) => (
-                      <TableCell key={h} align={i >= 6 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
+                    {["Fournisseur", "Contact", "Email", "Téléphone", "Ville", "Pays", "Famille", "Statut", "Actions"].map((h, i) => (
+                      <TableCell key={h} align={i >= 7 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
                         {h}
                       </TableCell>
                     ))}
@@ -575,6 +659,20 @@ const Fournisseur = () => {
                         <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.phone || "-"}</TableCell>
                         <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.city || "-"}</TableCell>
                         <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.country || "-"}</TableCell>
+                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                          {supplier.famille ? (
+                            <Chip 
+                              label={getFamilyLabel(supplier.famille)} 
+                              size="small"
+                              sx={{ 
+                                bgcolor: getFamilyColor(supplier.famille),
+                                color: "white",
+                                fontWeight: 500,
+                                fontSize: "0.7rem"
+                              }}
+                            />
+                          ) : "-"}
+                        </TableCell>
                         <TableCell align="center">
                           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
                             <Switch 
@@ -600,12 +698,12 @@ const Fournisseur = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} sx={{ border: "none" }}>
+                      <TableCell colSpan={9} sx={{ border: "none" }}>
                         <Box sx={{ textAlign: "center", py: 6 }}>
                           <BusinessIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
-                          <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucun fournisseur trouve</Typography>
+                          <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucun fournisseur trouvé</Typography>
                           <Typography sx={{ color: "#64748b" }}>
-                            {searchQuery ? "Aucun fournisseur ne correspond a votre recherche." : "Commencez par ajouter un fournisseur."}
+                            {searchQuery ? "Aucun fournisseur ne correspond à votre recherche." : "Commencez par ajouter un fournisseur."}
                           </Typography>
                         </Box>
                       </TableCell>
@@ -644,12 +742,27 @@ const Fournisseur = () => {
           </MenuItem>
         ))}
 
+        <Divider sx={{ borderColor: "rgba(59,130,246,0.1)", my: 1 }} />
+
+        <Box sx={{ px: 2, py: 1.2, borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
+          <Typography sx={{ color: "#94a3b8", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 0.75 }}>
+            <BusinessIcon sx={{ fontSize: 14 }} />
+            Famille
+          </Typography>
+        </Box>
+        {familyOptions.map((opt) => (
+          <MenuItem key={opt.value} onClick={() => setFilterFamily(opt.value)} sx={menuItemSx(filterFamily === opt.value)}>
+            <span>{opt.label}</span>
+            {filterFamily === opt.value && <CheckIcon sx={{ fontSize: 16, ml: "auto" }} />}
+          </MenuItem>
+        ))}
+
         {activeFiltersCount > 0 && (
           <>
             <Divider sx={{ borderColor: "rgba(59,130,246,0.1)", mt: 1 }} />
             <Box sx={{ p: 1.5 }}>
               <Button fullWidth size="small"
-                onClick={() => { setFilterStatus("all"); setFilterAnchorEl(null); }}
+                onClick={() => { setFilterStatus("all"); setFilterFamily(""); setFilterAnchorEl(null); }}
                 sx={{ color: "#ef4444", fontSize: "0.8rem", textTransform: "none", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "6px", "&:hover": { bgcolor: "rgba(239,68,68,0.08)" } }}
               >
                 Réinitialiser les filtres
@@ -691,6 +804,7 @@ const Fournisseur = () => {
         </MenuItem>
       </Menu>
 
+      {/* Add/Edit Dialog */}
       <Dialog
         open={openAddDialog}
         onClose={handleCloseAddDialog}
@@ -702,26 +816,211 @@ const Fournisseur = () => {
           {formData.id ? "Modifier le fournisseur" : "Ajouter un fournisseur"}
         </DialogTitle>
         <DialogContent sx={{ pt: 4, display: "flex", flexDirection: "column", gap: 2 }}>
-          <TextField label="Nom" value={formData.name} fullWidth size="small" sx={{ ...inputSx, mt: 1.5 }}
+          <TextField 
+            label="Nom du fournisseur *" 
+            value={formData.name} 
+            fullWidth 
+            size="small" 
+            sx={{ ...inputSx, mt: 1.5 }}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
           />
-          <TextField label="Contact" value={formData.contact_name} fullWidth size="small" sx={inputSx}
+          <TextField 
+            label="Personne de contact" 
+            value={formData.contact_name} 
+            fullWidth 
+            size="small" 
+            sx={inputSx}
             onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
           />
-          <TextField label="Email" value={formData.email} fullWidth size="small" sx={inputSx}
+          <TextField 
+            label="Email" 
+            value={formData.email} 
+            fullWidth 
+            size="small" 
+            sx={inputSx}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           />
-          <TextField label="Telephone" value={formData.phone} fullWidth size="small" sx={inputSx}
+          <TextField 
+            label="Téléphone" 
+            value={formData.phone} 
+            fullWidth 
+            size="small" 
+            sx={inputSx}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           />
-          <TextField label="Adresse" value={formData.address} fullWidth size="small" sx={inputSx}
+          <TextField 
+            label="Adresse" 
+            value={formData.address} 
+            fullWidth 
+            size="small" 
+            sx={inputSx}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
-          <TextField label="Ville" value={formData.city} fullWidth size="small" sx={inputSx}
+          <TextField 
+            label="Ville" 
+            value={formData.city} 
+            fullWidth 
+            size="small" 
+            sx={inputSx}
             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
           />
-          <TextField label="Pays" value={formData.country} fullWidth size="small" sx={inputSx}
+          <TextField 
+            label="Pays" 
+            value={formData.country} 
+            fullWidth 
+            size="small" 
+            sx={inputSx}
             onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+          />
+          <TextField
+            select
+            label="Famille"
+            value={formData.famille || ""}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                famille: e.target.value,
+                secteur: e.target.value,
+              })
+            }
+          >
+            <MenuItem value="">Aucune</MenuItem>
+            {familyOptions.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Registre commercial / ICE"
+            value={formData.registre_commerce}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, registre_commerce: e.target.value })}
+          />
+          <TextField
+            label="Identifiant fiscal / RC"
+            value={formData.identifiant_fiscal}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, identifiant_fiscal: e.target.value })}
+          />
+          <TextField
+            label="Anciennete / Date creation"
+            value={formData.anciennete}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, anciennete: e.target.value })}
+          />
+          <TextField
+            label="Prix unitaire / Tarif"
+            value={formData.prix_unitaire}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, prix_unitaire: e.target.value })}
+          />
+          <TextField
+            label="Conditions de paiement"
+            value={formData.conditions_paiement}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, conditions_paiement: e.target.value })}
+          />
+          <TextField
+            label="Remise / Reduction"
+            value={formData.remise}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, remise: e.target.value })}
+          />
+          <TextField
+            label="Zone de couverture"
+            value={formData.zone_couverture}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, zone_couverture: e.target.value })}
+          />
+          <TextField
+            label="Minimum de commande"
+            value={formData.minimum_commande}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, minimum_commande: e.target.value })}
+          />
+          <TextField
+            label="Delai de livraison"
+            value={formData.delai_livraison}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, delai_livraison: e.target.value })}
+          />
+          <TextField
+            label="Certifications"
+            value={formData.certifications}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, certifications: e.target.value })}
+          />
+          <TextField
+            label="Garantie / SAV"
+            value={formData.garantie_sav}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, garantie_sav: e.target.value })}
+          />
+          <TextField
+            label="References clients"
+            value={formData.references_clients}
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, references_clients: e.target.value })}
+          />
+          <TextField
+            label="Capacite de production"
+            value={formData.capacite_production}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, capacite_production: e.target.value })}
+          />
+          <TextField
+            select
+            label="Note globale"
+            value={String(formData.note_globale)}
+            fullWidth
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, note_globale: e.target.value })}
+          >
+            {[1, 2, 3, 4, 5].map((note) => (
+              <MenuItem key={note} value={String(note)}>{note} / 5</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            label="Commentaires / Remarques"
+            value={formData.commentaires}
+            fullWidth
+            multiline
+            rows={4}
+            size="small"
+            sx={inputSx}
+            onChange={(e) => setFormData({ ...formData, commentaires: e.target.value })}
           />
           <TextField
             select
@@ -746,6 +1045,7 @@ const Fournisseur = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Notifications */}
       <Snackbar open={!!successMessage} autoHideDuration={3000} onClose={() => setSuccessMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
         <Alert severity="success" sx={{ width: "100%" }}>{successMessage}</Alert>
       </Snackbar>

@@ -133,10 +133,59 @@ class StockMovement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Mouvement de stock"
-        verbose_name_plural = "Mouvements de stock"
-    
-    def __str__(self):
-        return f"{self.get_movement_type_display()} - {self.product.name} ({self.quantity})"
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_quantity = 0
+        old_type = None
+
+        if not is_new:
+            try:
+                old_movement = StockMovement.objects.get(pk=self.pk)
+                old_quantity = old_movement.quantity
+                old_type = old_movement.movement_type
+            except StockMovement.DoesNotExist:
+                pass
+
+        super().save(*args, **kwargs)
+
+        product = self.product
+        if not is_new and old_type:
+            if old_type == 'entry':
+                product.quantity -= old_quantity
+            elif old_type == 'exit':
+                product.quantity += old_quantity
+
+        if self.movement_type == 'entry':
+            product.quantity += self.quantity
+        elif self.movement_type == 'exit':
+            product.quantity -= self.quantity
+        
+        # update status based on quantity
+        if product.quantity <= 0:
+            product.status = 'out_of_stock'
+            product.quantity = 0
+        elif product.quantity <= product.min_quantity:
+            product.status = 'low'
+        else:
+            product.status = 'optimal'
+            
+        product.save()
+
+    def delete(self, *args, **kwargs):
+        product = self.product
+        if self.movement_type == 'entry':
+            product.quantity -= self.quantity
+        elif self.movement_type == 'exit':
+            product.quantity += self.quantity
+            
+        # update status based on quantity
+        if product.quantity <= 0:
+            product.status = 'out_of_stock'
+            product.quantity = 0
+        elif product.quantity <= product.min_quantity:
+            product.status = 'low'
+        else:
+            product.status = 'optimal'
+            
+        product.save()
+        super().delete(*args, **kwargs)

@@ -14,7 +14,7 @@ class Supplier(models.Model):
     # Informations générales (new)
     registre_commerce = models.CharField(max_length=100, blank=True)
     identifiant_fiscal = models.CharField(max_length=100, blank=True)
-    SECTEUR_CHOICES = [
+    FAMILLE_CHOICES = [
         ('matiere_premiere', 'Matière Première'),
         ('matiere_consommable', 'Matière Consommable'),
         ('matiere_emballage', 'Matière Emballage'),
@@ -22,7 +22,8 @@ class Supplier(models.Model):
         ('matiere_dangereuse', 'Matière Dangereuse'),
         ('fourniture_bureau', 'Fournitures Bureau'),
     ]
-    secteur = models.CharField(max_length=50, choices=SECTEUR_CHOICES, blank=True)
+    famille = models.CharField(max_length=50, choices=FAMILLE_CHOICES, blank=True)
+    secteur = models.CharField(max_length=50, blank=True)
     anciennete = models.CharField(max_length=100, blank=True)
     
     # Offre commerciale (new)

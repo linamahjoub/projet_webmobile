@@ -114,6 +114,7 @@ const StockMovements = () => {
   const [openExitDialog, setOpenExitDialog] = useState(false);
   const [statistics, setStatistics] = useState(null);
   const [availableProducts, setAvailableProducts] = useState([]);
+  const [acceptedOrders, setAcceptedOrders] = useState([]);
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [exitQuantity, setExitQuantity] = useState(1);
   const [exitRecipient, setExitRecipient] = useState("");
@@ -133,6 +134,7 @@ const StockMovements = () => {
 
   const API_BASE = "http://localhost:8000/api/stock/movements/";
   const PRODUCTS_API = "http://localhost:8000/api/stock/products/";
+  const ORDERS_API = "http://localhost:8000/api/orders/orders/";
 
   // ── Filter options ──────────────────────────────────────────────────
   const typeOptions = [
@@ -232,6 +234,44 @@ const StockMovements = () => {
 
   const normalizedMovements = movements.map(normalizeMovement);
 
+  const acceptedOrderReferences = acceptedOrders
+    .filter((order) => {
+      const status = String(order.status || "").toLowerCase();
+      return ["confirmed", "approved", "confirmée", "confirmé", "approuvé"].includes(status);
+    })
+    .flatMap((order) => {
+      const fallbackReference = `Commande #${order.id}`;
+      const referenceValue =
+        order.reference ||
+        order.order_number ||
+        order.purchase_order_number ||
+        fallbackReference;
+
+      return (order.items || []).map((item, index) => {
+        const productId = item.product_id || item.product?.id;
+        const nomenclature =
+          item.product?.sku ||
+          item.product?.nomenclature ||
+          item.sku ||
+          `Produit ${index + 1}`;
+
+        return {
+          id: `${order.id}-${item.id || index}`,
+          value: referenceValue,
+          label: nomenclature,
+          helperLabel: `${nomenclature} - ${referenceValue}`,
+          productId: productId ? String(productId) : "",
+        };
+      });
+    });
+
+  const filteredAcceptedOrderReferences = acceptedOrderReferences.filter(
+    (orderRef) =>
+      !formData.product_id ||
+      !orderRef.productId ||
+      orderRef.productId === String(formData.product_id)
+  );
+
   // ── Filtered movements ─────────────────────────────────────────────────
   const filteredMovements = normalizedMovements.filter((m) => {
     const matchesType = filterType === "all" || m.movement_type === filterType;
@@ -313,10 +353,46 @@ const StockMovements = () => {
     }
   };
 
+  const fetchAcceptedOrders = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(ORDERS_API, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      const items = Array.isArray(data) ? data : data.results || [];
+      const normalizedOrders = items.map((order) => ({
+        ...order,
+        items: (order.items || []).map((item) => ({
+          ...item,
+          product_id: item.product_id || item.product?.id,
+        })),
+        customer_name:
+          order.customer?.full_name ||
+          order.customer_name ||
+          order.customer?.username ||
+          "Client",
+      }));
+
+      setAcceptedOrders(normalizedOrders);
+    } catch (error) {
+      console.error("Erreur lors du chargement des commandes acceptées:", error);
+    }
+  };
+
   useEffect(() => {
     fetchMovements();
     fetchStatistics();
     fetchProducts();
+    fetchAcceptedOrders();
   }, []);
 
   useEffect(() => {
@@ -341,6 +417,37 @@ const StockMovements = () => {
     });
     setOpenAddDialog(true);
   };
+
+  useEffect(() => {
+    if (
+      formData.movement_type === "entry" &&
+      formData.product_id
+    ) {
+      const firstMatchingReference = filteredAcceptedOrderReferences[0]?.value || "";
+      const currentReferenceIsValid = filteredAcceptedOrderReferences.some(
+        (orderRef) => orderRef.value === formData.reference
+      );
+
+      if (!currentReferenceIsValid && firstMatchingReference) {
+        setFormData((prev) => ({
+          ...prev,
+          reference: firstMatchingReference,
+        }));
+      }
+
+      if (!firstMatchingReference && formData.reference) {
+        setFormData((prev) => ({
+          ...prev,
+          reference: "",
+        }));
+      }
+    }
+  }, [
+    formData.movement_type,
+    formData.product_id,
+    formData.reference,
+    filteredAcceptedOrderReferences,
+  ]);
 
   const handleCloseAddDialog = () => {
     setOpenAddDialog(false);
@@ -686,14 +793,16 @@ const StockMovements = () => {
               </Typography>
             </Box>
             <Avatar
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6",
-              }}
-            >
-              {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
-            </Avatar>
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    bgcolor: user?.is_superuser || user?.is_staff ? "#ef4444" : user?.role === "responsable_appro" ? "#f97316" : user?.role === "responsable_stock" ? "#22c55e" : "#3b82f6",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                  }}
+                >
+                  {user?.first_name?.charAt(0)?.toUpperCase() || user?.username?.charAt(0)?.toUpperCase() || "U"}
+                </Avatar>
           </Box>
         </Box>
 
@@ -1249,8 +1358,38 @@ const StockMovements = () => {
             }
             fullWidth
             size="small"
-            sx={inputSx}
+            sx={{
+              ...inputSx,
+              display: formData.movement_type === "entry" ? "none" : "block",
+            }}
           />
+
+          {formData.movement_type === "entry" && (
+            <FormControl fullWidth size="small">
+              <InputLabel sx={{ color: "#64748b" }}>
+                Nomenclature de la commande
+              </InputLabel>
+              <Select
+                value={formData.reference}
+                label="Nomenclature de la commande"
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    reference: e.target.value,
+                  })
+                }
+                MenuProps={selectMenuProps}
+                sx={inputSx}
+              >
+                <MenuItem value="">Sélectionner une nomenclature</MenuItem>
+                {filteredAcceptedOrderReferences.map((orderRef) => (
+                  <MenuItem key={orderRef.id} value={orderRef.value}>
+                    {orderRef.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* Notes */}
           <TextField

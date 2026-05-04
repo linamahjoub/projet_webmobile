@@ -74,8 +74,13 @@ class Alert(models.Model):
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='alerts')
     
     # Notifications
-    notification_channels = models.JSONField(default=list, help_text="Liste des canaux de notification")
-    recipients = models.JSONField(default=list, help_text="Liste des destinataires")
+    notification_channels = models.JSONField(default=list, help_text="Liste des canaux de notification", blank=True)
+    recipients = models.JSONField(default=list, help_text="Liste des destinataires", blank=True)
+    recipient_role = models.CharField(max_length=50, blank=True, null=True, help_text="Rôle des destinataires")
+    notif_type = models.CharField(max_length=50, blank=True, null=True, help_text="Type de notification")
+    recurrence = models.CharField(max_length=50, blank=True, null=True, help_text="Récurrence")
+    snooze_hours = models.IntegerField(default=0, help_text="Heures de délai pour reporter l'alerte")
+
     custom_subject = models.CharField(max_length=255, blank=True, null=True, help_text="Sujet d'email personnalisé")
     custom_body = models.TextField(blank=True, null=True, help_text="Corps d'email personnalisé")
     

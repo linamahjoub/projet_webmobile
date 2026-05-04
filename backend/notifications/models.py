@@ -218,7 +218,7 @@ class NotificationChannelPreference(models.Model):
     )
     email_enabled = models.BooleanField(default=True)
     in_app_enabled = models.BooleanField(default=True)
-    telegram_enabled = models.BooleanField(default=False)
+    telegram_enabled = models.BooleanField(default=True)
     schedule = models.CharField(max_length=20, choices=SCHEDULE_CHOICES, default='realtime')
     updated_at = models.DateTimeField(auto_now=True)
 
