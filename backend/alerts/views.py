@@ -66,7 +66,7 @@ class AlertViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser or user.is_staff:
+        if user.is_superuser:
             return Alert.objects.all()
         return Alert.objects.filter(user=user)
 
@@ -96,10 +96,17 @@ class AlertViewSet(viewsets.ModelViewSet):
                 notification_serializer = CreateNotificationSerializer(data=notification_data)
                 if notification_serializer.is_valid(raise_exception=True):
                     notification_serializer.save()
+                    notification_serializer.instance._skip_signal = True  # Éviter double envoi
+
             except Exception as e:
                 logger.error(f"Erreur lors de la création de la notification de configuration d'alerte: {e}")
 
     def perform_update(self, serializer):
+        alert = serializer.instance
+        # Vérifier que c'est le propriétaire de l'alerte ou un super_admin
+        if alert.user != self.request.user and not self.request.user.is_superuser:
+            raise PermissionError("You do not have permission to modify this alert.")
+        
         alert = serializer.save()
         
         # Log
@@ -131,6 +138,10 @@ class AlertViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
         alert = self.get_object()
+        # Vérifier que c'est le propriétaire de l'alerte ou un super_admin
+        if alert.user != request.user and not request.user.is_superuser:
+            return Response({"detail": "You do not have permission to modify this alert."}, status=status.HTTP_403_FORBIDDEN)
+        
         alert.is_active = not alert.is_active
         alert.save()
 
@@ -156,7 +167,7 @@ class AlertViewSet(viewsets.ModelViewSet):
         return Response({'message': f'Alerte {status_text}', 'is_active': alert.is_active})
 
     def perform_destroy(self, instance):
-        if instance.user != self.request.user and not self.request.user.is_staff:
+        if instance.user != self.request.user and not self.request.user.is_superuser:
             return Response(status=status.HTTP_403_FORBIDDEN)
         instance.delete()
 
@@ -174,7 +185,7 @@ class AlertViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def employee_alerts(self, request):
-        if not (request.user.is_superuser or request.user.is_staff):
+        if not request.user.is_superuser:
             return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
         
         alerts = Alert.objects.exclude(user=request.user)

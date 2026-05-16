@@ -375,7 +375,7 @@ const Alerts = () => {
   const fetchAlerts = async () => {
     try {
       setLoading(true);
-      const isAdmin = user?.is_superuser || user?.is_staff;
+      const isAdmin = user?.is_superuser;
       
       if (isAdmin) {
         // For admins, fetch both sets of alerts from specific endpoints
@@ -596,7 +596,7 @@ const Alerts = () => {
   const employeePausedCount = employeeAlerts.filter(a => a.is_active === true && a.is_paused === true).length;
   const employeeInactiveCount = employeeAlerts.filter(a => a.is_active === false).length;
 
-  const isAdmin = user?.is_superuser || user?.is_staff;
+  const isAdmin = user?.is_superuser;
 
   useEffect(() => {
     const savedSettings = localStorage.getItem("alert_settings");

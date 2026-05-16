@@ -426,116 +426,41 @@ const Orders = () => {
     setSelectedOrder(null);
   };
 
-  // ✅ handleExportPDF - UNITÉ FIXÉE + STATUT AJOUTÉ
-  const handleExportPDF = () => {
-    if (!selectedOrder) return;
-    const orderId = selectedOrder.id ?? "-";
-    const orderDate = selectedOrder.created_at
-      ? new Date(selectedOrder.created_at).toLocaleDateString("fr-FR")
-      : "-";
-    const customerName =
-      selectedOrder.customer?.full_name || selectedOrder.customer_name || "-";
-    const items = Array.isArray(selectedOrder.items) ? selectedOrder.items : [];
-    const statutLabel = statusConfig[selectedOrder.status]?.label || selectedOrder.status;
-    const statutColor = statusConfig[selectedOrder.status]?.color || "#64748b";
+const handleExportPDF = async () => {
+  if (!selectedOrder) return;
+  
+  try {
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(`${API_BASE}${selectedOrder.id}/export_pdf/`, {
+      method: "GET",
+      headers: {
+        Authorization: token ? `Bearer ${token}` : undefined,
+      },
+    });
     
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>Bon de Commande #${orderId}</title>
-<style>
-body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #222; margin: 0; padding: 0; }
-.bon-container { max-width: 900px; margin: 30px auto; background: #fff; border: 1.5px solid #e0e0e0; border-radius: 10px; box-shadow: 0 2px 12px #0001; padding: 32px 40px; }
-.bon-header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #3b82f6; padding-bottom: 18px; margin-bottom: 18px; }
-.bon-logo { width: 90px; height: 90px; object-fit: contain; border-radius: 50%; background: #f3f4f6; border: 1px solid #e5e7eb; }
-.bon-title { flex: 1; text-align: center; font-size: 2.1rem; font-weight: 700; color: #3b82f6; letter-spacing: 2px; margin-top: 18px; }
-.bon-info { font-size: 0.98rem; color: #374151; margin-top: 8px; }
-.bon-table { width: 100%; border-collapse: collapse; margin-top: 24px; margin-bottom: 18px; }
-.bon-table th, .bon-table td { border: 1px solid #cbd5e1; padding: 10px 8px; text-align: left; font-size: 1rem; }
-.bon-table th { background: #f1f5f9; color: #2563eb; font-weight: 600; }
-.bon-signature { margin-top: 40px; display: flex; justify-content: flex-end; align-items: center; gap: 40px; }
-.bon-signature-block { text-align: center; }
-.bon-signature-label { color: #64748b; font-size: 0.95rem; margin-bottom: 18px; display: block; }
-@media print { .bon-container { box-shadow: none; border: none; padding: 0; } }
-</style>
-</head>
-<body>
-<div class="bon-container">
-<div class="bon-header">
-<img src="${window.location.origin}/notif.png" alt="Logo" class="bon-logo" />
-<div class="bon-title">Bon de Commande</div>
-<div class="bon-info">
-<div><strong>Date :</strong> ${orderDate}</div>
-<div><strong>N° :</strong> CMD-${orderId}</div>
-<div><strong>Employé :</strong> ${customerName}</div>
-<div><strong>Statut :</strong> <span style="color:${statutColor};font-weight:600;">${statutLabel}</span></div>
-</div>
-</div>
-<table class="bon-table">
-<thead>
-<tr>
-<th>Nomenclature</th>
-<th>Désignation</th>
-<th>Unité</th>
-<th>Qté demandé</th>
-<th>Prix unitaire</th>
-<th>Qté restante</th>
-</tr>
-</thead>
-<tbody>
-${
-  items && items.length > 0
-    ? items
-        .map((item, idx) => {
-          const product = getProductById(item.product_id || item.product?.id);
-          const nomenclature =
-            product?.sku || product?.nomenclature || `PROD-${idx + 1}`;
-          const designation = product?.name || "Produit";
-          const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
-          const quantite = Number(item.quantity) || 0;
-          const prixUnitaire = parseFloat(item.unit_price) || 0;
-          const quantiteRestante = getRemainingStockForProduct(
-            item.product_id || item.product?.id
-          );
-          return `
-<tr>
-<td>${nomenclature}</td>
-<td>${designation}</td>
-<td>${unite}</td>
-<td style="text-align: center;">${quantite}</td>
-<td style="text-align: right;">${prixUnitaire.toLocaleString("fr-FR", {
-            minimumFractionDigits: 2,
-          })} €</td>
-<td style="text-align: right; color: ${
-            quantiteRestante > 0 ? "#10b981" : "#ef4444"
-          }; font-weight: 600;">${quantiteRestante}</td>
-</tr>
-`;
-        })
-        .join("")
-    : `<tr><td colspan='6' style='text-align:center;'>Aucun article</td></tr>`
-}
-</tbody>
-</table>
-<div class="bon-signature">
-<div class="bon-signature-block">
-<span class="bon-signature-label">Signature et Cachet</span>
-<div style="width:150px;height:60px;border:1px dashed #cbd5e1;border-radius:5px;"></div>
-</div>
-</div>
-</div>
-</body>
-</html>
-`;
-    const printWindow = window.open("", "", "height=600,width=800");
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
-  };
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      setErrorMessage(error.error || "Erreur lors de l'export PDF");
+      return;
+    }
+    
+    // Télécharger le PDF généré par ReportLab
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `commande_${selectedOrder.id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    setSuccessMessage(`PDF de la commande #${selectedOrder.id} téléchargé avec succès`);
+  } catch (error) {
+    console.error("Erreur lors de l'export PDF:", error);
+    setErrorMessage("Erreur réseau lors de l'export PDF");
+  }
+};
 
   const statCards = statistics
     ? [

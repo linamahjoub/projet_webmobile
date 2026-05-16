@@ -794,7 +794,10 @@ def create_trigger_notification(alert, product, message):
             notification_type="alert_triggered",
             priority=getattr(alert, "severity", "medium") or "medium",
         )
+        
+        # Rétablir l'envoi manuel puisque la notification a `_skip_signal = True`
         _send_alert_email_to_recipients(alert, message)
+
         
     if "telegram" in final_channels:
         _send_alert_telegram_to_recipients(alert, message)
@@ -859,16 +862,8 @@ def create_trigger_notification_for_invoice(alert, invoice, message):
         notification.save()
 
     # L'envoi de l'email est maintenant strictement lié à final_channels
-    if "email" in final_channels:
-        emails = []
-        if alert.user and getattr(alert.user, "email", None):
-            emails.append(alert.user.email)
-        for r in (alert.recipients or []):
-            rs = str(r).strip()
-            if "@" in rs:
-                emails.append(rs)
+    # Email envoyé par notifications/services.py via overrides - plus de double envoi
 
-        _send_alert_email_to_recipients(alert, message)
         
     if "telegram" in final_channels:
         _send_alert_telegram_to_recipients(alert, message)

@@ -157,14 +157,47 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
             'phone_number', 'company', 'role', 'authorized_pages', 'is_active', 'is_staff',
             'is_superuser', 'is_primary_admin'
         ]
+        # Tous les champs optionnels pour les PATCH requests
+        extra_kwargs = {
+            'email': {'required': False},
+            'username': {'required': False},
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+            'phone_number': {'required': False},
+            'company': {'required': False},
+            'role': {'required': False},
+            'authorized_pages': {'required': False},
+            'is_active': {'required': False},
+            'is_staff': {'required': False},
+            'is_superuser': {'required': False},
+            'is_primary_admin': {'required': False},
+        }
     
     def validate_email(self, value):
+        if not value:  # Skip si vide
+            return value
         user_id = self.instance.id if self.instance else None
         if User.objects.exclude(pk=user_id).filter(email=value).exists():
             raise serializers.ValidationError(
                 "Un utilisateur avec cet email existe déjà."
             )
         return value
+    
+    def validate_role(self, value):
+        if not value:  # Skip si vide
+            return value
+        # Vérifier que le rôle est valide
+        valid_roles = [role[0] for role in User.ROLE_CHOICES]
+        if value not in valid_roles:
+            raise serializers.ValidationError(
+                f"« {value} » n'est pas un choix valide. Choix valides: {', '.join(valid_roles)}"
+            )
+        return value
+    
+    def update(self, instance, validated_data):
+        """Mettre à jour l'utilisateur avec logging"""
+        print(f"[ADMIN UPDATE] Updating user {instance.id} with data: {validated_data}")
+        return super().update(instance, validated_data)
 
 
 class ChangePasswordSerializer(serializers.Serializer):

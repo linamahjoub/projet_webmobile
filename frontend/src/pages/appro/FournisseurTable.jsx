@@ -124,7 +124,7 @@ const StatCard = ({ label, value, color, onClick }) => {
 /* ─── Supplier Card Component ─────────────────────────────────────────── */
 const SupplierCard = ({ supplier, onEdit, onDelete, onToggleStatus, onSelectSupplier }) => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -240,35 +240,82 @@ const SupplierCard = ({ supplier, onEdit, onDelete, onToggleStatus, onSelectSupp
       </Menu>
 
       <CardContent sx={{ flex: 1, p: 2 }}>
-        <InfoRow icon={PersonIcon} label="Contact" value={supplier.contact_name} />
+        {/* INFORMATIONS LÉGALES */}
+        <Typography variant="caption" sx={{ color: C.accent, fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 0.75, mb: 1.5 }}>
+          <Box sx={{ display: "inline-block", width: 4, height: 4, bgcolor: C.accent, borderRadius: "50%" }} />
+          Informations Légales
+        </Typography>
+        <InfoRow icon={BusinessIcon} label="Registre commercial" value={supplier.registre_commerce} />
+        <InfoRow icon={BusinessIcon} label="Identifiant fiscal" value={supplier.identifiant_fiscal} />
+        <InfoRow icon={BusinessIcon} label="Anciennete" value={supplier.anciennete} />
+
+        {/* CONTACT */}
+        <Typography variant="caption" sx={{ color: C.accent, fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 0.75, mb: 1.5, mt: 2 }}>
+          <Box sx={{ display: "inline-block", width: 4, height: 4, bgcolor: C.accent, borderRadius: "50%" }} />
+          Contact
+        </Typography>
+        <InfoRow icon={PersonIcon} label="Contact principal" value={supplier.contact_name} />
         <InfoRow icon={EmailIcon} label="Email" value={supplier.email} />
         <InfoRow icon={PhoneIcon} label="Téléphone" value={supplier.phone} />
-        <InfoRow icon={LocationOnIcon} label="Localisation" value={`${supplier.city || ""} ${supplier.country || ""}`.trim() || "-"} />
 
-        {expanded && (
-          <>
-            <Divider sx={{ my: 2, borderColor: C.border }} />
-            <Typography variant="subtitle2" sx={{ color: C.accent, fontWeight: 600, mb: 1.5 }}>Infos Commerciales</Typography>
-            <InfoRow icon={AttachMoneyIcon} label="Prix unitaire" value={supplier.prix_unitaire} color={C.success} />
-            <InfoRow icon={ReceiptIcon} label="Conditions paiement" value={supplier.conditions_paiement} color={C.success} />
-            <InfoRow icon={PercentIcon} label="Remise" value={supplier.remise} color={C.success} />
-            <InfoRow icon={LocalShippingIcon} label="Délai livraison" value={supplier.delai_livraison} color={C.success} />
-            <InfoRow icon={VerifiedIcon} label="Certifications" value={supplier.certifications} color={C.success} />
-          </>
-        )}
+        {/* LOCALISATION */}
+        <Typography variant="caption" sx={{ color: C.accent, fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 0.75, mb: 1.5, mt: 2 }}>
+          <Box sx={{ display: "inline-block", width: 4, height: 4, bgcolor: C.accent, borderRadius: "50%" }} />
+          Localisation
+        </Typography>
+        <InfoRow icon={LocationOnIcon} label="Adresse" value={supplier.address} />
+        <InfoRow icon={LocationOnIcon} label="Zone couverture" value={supplier.zone_couverture} />
+        <InfoRow icon={LocationOnIcon} label="Ville" value={supplier.city} />
+        <InfoRow icon={LocationOnIcon} label="Pays" value={supplier.country} />
 
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 2 }}>
+        {/* OFFRE COMMERCIALE (dépliable) */}
+        <Box sx={{ mt: 2, borderTop: `1px solid ${C.border}`, pt: 2 }}>
+          <Typography variant="caption" sx={{ color: C.accent, fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 0.75, mb: 1.5, cursor: "pointer" }} onClick={() => setExpanded(!expanded)}>
+            <Box sx={{ display: "inline-block", width: 4, height: 4, bgcolor: C.accent, borderRadius: "50%" }} />
+            Offre Commerciale
+            <Box sx={{ ml: "auto", transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+              ▼
+            </Box>
+          </Typography>
+
+          {expanded && (
+            <Box sx={{ mt: 1.5 }}>
+              <InfoRow icon={AttachMoneyIcon} label="Prix unitaire" value={supplier.prix_unitaire} color={C.success} />
+              <InfoRow icon={ReceiptIcon} label="Conditions paiement" value={supplier.conditions_paiement} color={C.success} />
+              <InfoRow icon={PercentIcon} label="Remise" value={supplier.remise} color={C.success} />
+              <InfoRow icon={LocalShippingIcon} label="Délai livraison" value={supplier.delai_livraison} color={C.success} />
+              <InfoRow icon={VerifiedIcon} label="Certifications" value={supplier.certifications} color={C.success} />
+            </Box>
+          )}
+        </Box>
+
+        {/* STATUT ET NOTE */}
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 2.5, pt: 2, borderTop: `1px solid ${C.border}` }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="caption" sx={{ color: C.textMuted, fontSize: "0.7rem", fontWeight: 600 }}>
+              Statut du fournisseur
+            </Typography>
+            <Switch 
+              checked={supplier.is_active} 
+              onChange={() => onToggleStatus(supplier)}
+              size="small"
+              sx={{ 
+                "& .MuiSwitch-switchBase.Mui-checked": { color: C.success }, 
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { bgcolor: C.success } 
+              }}
+            />
+            <Typography variant="caption" sx={{ color: supplier.is_active ? C.success : C.danger, fontSize: "0.7rem", fontWeight: 600 }}>
+              {supplier.is_active ? "Actif" : "Inactif"}
+            </Typography>
+          </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <StarIcon sx={{ fontSize: 18, color: getNoteColor(supplier.note_globale) }} />
             <Typography variant="body2" sx={{ color: C.textSub }}>Note: {supplier.note_globale}/5</Typography>
           </Box>
-          <Button size="small" onClick={() => setExpanded(!expanded)} sx={{ color: C.accent, textTransform: "none" }}>
-            {expanded ? "Voir moins" : "Voir plus"}
-          </Button>
         </Box>
 
-        <Button fullWidth variant="outlined" onClick={() => onSelectSupplier(supplier)} sx={{ mt: 2, borderColor: C.accent, color: C.accent, textTransform: "none", "&:hover": { borderColor: C.accentHi, bgcolor: hexToRgba(C.accent, 0.08) } }}>
-          Choisir ce fournisseur
+        <Button fullWidth variant="contained" onClick={() => onSelectSupplier(supplier)} sx={{ mt: 2.5, bgcolor: C.success, color: "white", fontWeight: 600, textTransform: "none", borderRadius: 2, "&:hover": { bgcolor: "#059669" } }}>
+          ✓ Choisir ce fournisseur
         </Button>
       </CardContent>
     </Card>
@@ -280,7 +327,7 @@ const Fournisseur = () => {
   const { triggerActivityRefresh } = useActivityContext();
   const location = useLocation();
   const navigate = useNavigate();
-  const { famille } = useParams(); // Récupérer le paramètre d'URL
+  const { familyKey } = useParams(); // Récupérer le paramètre d'URL (:familyKey depuis la route)
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -300,18 +347,24 @@ const Fournisseur = () => {
 
   // Appliquer le filtre automatiquement quand le paramètre d'URL change
   useEffect(() => {
-    if (famille) {
-      // Convertir le nom de la famille (ex: "matiere-premiere" -> "matiere_premiere")
+    if (familyKey) {
+      // Convertir le nom de la famille (ex: "matiere-premiere" -> "matiere_premiere" ou "matiere_premiere" -> "matiere_premiere")
       const secteurMap = {
         "matiere-premiere": "matiere_premiere",
+        "matiere_premiere": "matiere_premiere",
         "matiere-consommable": "matiere_consommable",
+        "matiere_consommable": "matiere_consommable",
         "matiere-emballage": "matiere_emballage",
+        "matiere_emballage": "matiere_emballage",
         "matiere-chimique": "matiere_chimique",
+        "matiere_chimique": "matiere_chimique",
         "matiere-dangereuse": "matiere_dangereuse",
+        "matiere_dangereuse": "matiere_dangereuse",
         "fourniture-bureau": "fourniture_bureau",
+        "fourniture_bureau": "fourniture_bureau",
       };
       
-      const mappedSecteur = secteurMap[famille] || famille;
+      const mappedSecteur = secteurMap[familyKey] || familyKey;
       setFilterSecteur(mappedSecteur);
       
       // Afficher un message de notification
@@ -322,14 +375,14 @@ const Fournisseur = () => {
         matiere_chimique: "Matière chimique",
         matiere_dangereuse: "Matière dangereuse",
         fourniture_bureau: "Fournitures bureau",
-      }[mappedSecteur] || famille;
+      }[mappedSecteur] || familyKey;
       
       setSuccessMessage(`Filtre appliqué : ${secteurLabel}`);
       
       // Nettoyer le message après 3 secondes
       setTimeout(() => setSuccessMessage(""), 3000);
     }
-  }, [famille]);
+  }, [familyKey]);
 
   const [formData, setFormData] = useState({
     id: null,
@@ -472,7 +525,7 @@ const Fournisseur = () => {
   }, []);
 
   useEffect(() => {
-    if (location.pathname === "/fournisseur/new") {
+    if (location.pathname === "/appro/fournisseurs/new") {
       handleOpenAddDialog();
     }
   }, [location.pathname]);
@@ -517,8 +570,8 @@ const Fournisseur = () => {
   const handleCloseAddDialog = () => {
     setOpenAddDialog(false);
     setFormData(emptyForm);
-    if (location.pathname === "/fournisseur/new") {
-      navigate("/fournisseur");
+    if (location.pathname === "/appro/fournisseurs/new") {
+      navigate("/appro/fournisseurs");
     }
   };
 
@@ -634,9 +687,13 @@ const Fournisseur = () => {
   };
 
   const handleConfirmSelection = () => {
-    setSuccessMessage(`Fournisseur "${selectedSupplierForConfirm?.name}" sélectionné avec succès`);
+    // Naviguer vers la page Bon d'Achat avec le fournisseur sélectionné
+    navigate("/appro/bon-achat", { 
+      state: { selectedSupplier: selectedSupplierForConfirm } 
+    });
+    setSuccessMessage(`Fournisseur "${selectedSupplierForConfirm?.name}" sélectionné - Création du bon d'achat`);
     setConfirmDialogOpen(false);
-    setSelectedSupplierForConfirm(null);
+    setTimeout(() => setSuccessMessage(""), 3000);
   };
 
   const handleCancelSelection = () => {
@@ -761,7 +818,7 @@ const Fournisseur = () => {
               <Button 
                 variant="outlined"
                 size="small"
-                onClick={() => { setFilterSecteur(""); navigate("/fournisseur"); }}
+                onClick={() => { setFilterSecteur(""); navigate("/appro/fournisseurs"); }}
                 sx={{ borderColor: C.border, color: C.textMuted, textTransform: "none", whiteSpace: "nowrap" }}
               >
                 Effacer le filtre
@@ -778,12 +835,12 @@ const Fournisseur = () => {
               {filterSecteur && (
                 <Chip 
                   label={`Secteur: ${secteurOptions.find((opt) => opt.value === filterSecteur)?.label || filterSecteur}`} 
-                  onDelete={() => { setFilterSecteur(""); navigate("/fournisseur"); }} 
+                  onDelete={() => { setFilterSecteur(""); navigate("/appro/fournisseurs"); }} 
                   size="small" 
                   sx={{ bgcolor: C.accentDim, color: C.accent, fontWeight: 500 }} 
                 />
               )}
-              <Button size="small" onClick={() => { setFilterStatus("all"); setFilterSecteur(""); navigate("/fournisseur"); }} sx={{ color: C.textMuted, fontSize: "0.75rem", textTransform: "none" }}>Tout effacer</Button>
+              <Button size="small" onClick={() => { setFilterStatus("all"); setFilterSecteur(""); navigate("/appro/fournisseurs"); }} sx={{ color: C.textMuted, fontSize: "0.75rem", textTransform: "none" }}>Tout effacer</Button>
             </Box>
           )}
 
@@ -843,7 +900,7 @@ const Fournisseur = () => {
           <>
             <Divider sx={{ borderColor: C.border, mt: 1 }} />
             <Box sx={{ p: 1.5 }}>
-              <Button fullWidth size="small" onClick={() => { setFilterStatus("all"); setFilterSecteur(""); navigate("/fournisseur"); setFilterAnchorEl(null); }} sx={{ color: C.danger, fontSize: "0.8rem", textTransform: "none", border: `1px solid rgba(239,68,68,0.3)`, borderRadius: "6px" }}>Réinitialiser les filtres</Button>
+              <Button fullWidth size="small" onClick={() => { setFilterStatus("all"); setFilterSecteur(""); navigate("/appro/fournisseurs"); setFilterAnchorEl(null); }} sx={{ color: C.danger, fontSize: "0.8rem", textTransform: "none", border: `1px solid rgba(239,68,68,0.3)`, borderRadius: "6px" }}>Réinitialiser les filtres</Button>
             </Box>
           </>
         )}

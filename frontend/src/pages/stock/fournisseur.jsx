@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useActivityContext } from "../../context/ActivityContext";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  CircularProgress,
+  Grid,
   Box,
   Typography,
   Card,
@@ -39,12 +41,17 @@ import {
   MoreVert as MoreVertIcon,
   Search as SearchIcon,
   Add as AddIcon,
+  Email as EmailIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Menu as MenuIcon,
   Check as CheckIcon,
   FilterList as FilterListIcon,
+  Person as PersonIcon,
+  Phone as PhoneIcon,
+  LocationOn as LocationOnIcon,
+  Star as StarIcon,
 } from "@mui/icons-material";
 import { CiFilter } from "react-icons/ci";
 import SharedSidebar from "../../components/SharedSidebar";
@@ -157,6 +164,7 @@ const Fournisseur = () => {
   const { triggerActivityRefresh } = useActivityContext();
   const location = useLocation();
   const navigate = useNavigate();
+  const { famille } = useParams(); // Récupérer le paramètre d'URL
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -267,6 +275,39 @@ const Fournisseur = () => {
   useEffect(() => {
     fetchSuppliers();
   }, []);
+
+  // Appliquer le filtre automatiquement quand le paramètre d'URL change
+  useEffect(() => {
+    if (famille) {
+      // Convertir le nom de la famille (ex: "matiere-premiere" -> "matiere_premiere")
+      const familleMap = {
+        "matiere-premiere": "matiere_premiere",
+        "matiere-consommable": "matiere_consommable",
+        "matiere-emballage": "matiere_emballage",
+        "matiere-chimique": "matiere_chimique",
+        "matiere-dangereuse": "matiere_dangereuse",
+        "fourniture-bureau": "fourniture_bureau",
+      };
+      
+      const mappedFamily = familleMap[famille] || famille;
+      setFilterFamily(mappedFamily);
+      
+      // Afficher un message de notification
+      const familleLabel = {
+        matiere_premiere: "Matière première",
+        matiere_consommable: "Matière consommable",
+        matiere_emballage: "Matière emballage",
+        matiere_chimique: "Matière chimique",
+        matiere_dangereuse: "Matière dangereuse",
+        fourniture_bureau: "Fournitures bureau",
+      }[mappedFamily] || famille;
+      
+      setSuccessMessage(`Filtre appliqué : ${familleLabel}`);
+      
+      // Nettoyer le message après 3 secondes
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  }, [famille]);
 
   useEffect(() => {
     if (location.pathname === "/fournisseur/new") {
@@ -558,6 +599,57 @@ const Fournisseur = () => {
             ))}
           </Box>
 
+          {/* Cartes de famille cliquables */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", mb: 1.5 }}>
+              Filtrer par famille
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+              {familyOptions.map((fam) => {
+                const familleKey = fam.value.replace("_", "-"); // Convertir "matiere_premiere" en "matiere-premiere" pour l'URL
+                const isActive = filterFamily === fam.value;
+                return (
+                  <Card
+                    key={fam.value}
+                    onClick={() => navigate(`/fournisseur/${familleKey}`)}
+                    sx={{
+                      bgcolor: isActive ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.05)",
+                      border: `1px solid ${isActive ? "rgba(59,130,246,0.5)" : "rgba(59,130,246,0.2)"}`,
+                      borderRadius: 2,
+                      px: 2.5,
+                      py: 1.5,
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        borderColor: "rgba(59,130,246,0.6)",
+                        boxShadow: `0 4px 12px ${getFamilyColor(fam.value)}20`,
+                      },
+                    }}
+                  >
+                    <Box sx={{ width: 8, height: 8, bgcolor: getFamilyColor(fam.value), borderRadius: "50%" }} />
+                    <Typography variant="body2" sx={{ color: isActive ? "#3b82f6" : "#94a3b8", fontWeight: isActive ? 600 : 500, textTransform: "none" }}>
+                      {fam.label}
+                    </Typography>
+                    {isActive && <CheckIcon sx={{ fontSize: 16, ml: "auto", color: "#3b82f6" }} />}
+                  </Card>
+                );
+              })}
+              {filterFamily && (
+                <Button 
+                  size="small"
+                  onClick={() => { setFilterFamily(""); navigate("/fournisseur"); }}
+                  sx={{ color: "#ef4444", fontSize: "0.85rem", textTransform: "none", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 2, px: 1.5, py: 0.75 }}
+                >
+                  ✕ Effacer
+                </Button>
+              )}
+            </Box>
+          </Box>
+
           {/* Filter + Search */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeFiltersCount > 0 ? 1.5 : 3 }}>
             <Tooltip title="Filtres">
@@ -630,89 +722,167 @@ const Fournisseur = () => {
             </Box>
           )}
 
-          <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3 }}>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "rgba(59,130,246,0.05)", borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
-                    {["Fournisseur", "Contact", "Email", "Téléphone", "Ville", "Pays", "Famille", "Statut", "Actions"].map((h, i) => (
-                      <TableCell key={h} align={i >= 7 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
-                        {h}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredSuppliers.length > 0 ? (
-                    filteredSuppliers.map((supplier) => (
-                      <TableRow key={supplier.id} sx={{ borderBottom: "1px solid rgba(59,130,246,0.1)", "&:hover": { bgcolor: "rgba(59,130,246,0.05)" } }}>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Avatar sx={{ bgcolor: "rgba(59,130,246,0.15)", width: 36, height: 36 }}>
-                              <BusinessIcon sx={{ fontSize: 18, color: "#3b82f6" }} />
-                            </Avatar>
-                            <Typography variant="body2" sx={{ color: "white", fontWeight: 600 }}>{supplier.name}</Typography>
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+              <CircularProgress sx={{ color: "#3b82f6" }} />
+            </Box>
+          ) : filteredSuppliers.length > 0 ? (
+            <Grid container spacing={3}>
+              {filteredSuppliers.map((supplier) => (
+                <Grid item xs={12} md={6} lg={4} key={supplier.id}>
+                  <Card
+                    sx={{
+                      bgcolor: "#0d1321",
+                      border: "1px solid rgba(59,130,246,0.15)",
+                      borderRadius: 3,
+                      transition: "all 0.3s ease",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      "&:hover": {
+                        transform: "translateY(-4px)",
+                        borderColor: "#3b82f6",
+                        boxShadow: "0 8px 24px rgba(59,130,246,0.15)",
+                      },
+                    }}
+                  >
+                    {/* Header avec icône et actions */}
+                    <Box sx={{ p: 2, borderBottom: "1px solid rgba(59,130,246,0.1)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Avatar sx={{ bgcolor: "rgba(59,130,246,0.15)", width: 48, height: 48 }}>
+                          <BusinessIcon sx={{ color: "#3b82f6" }} />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h6" sx={{ color: "white", fontWeight: 700 }}>
+                            {supplier.name}
+                          </Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: 0.5 }}>
+                            {supplier.famille && (
+                              <Chip
+                                label={getFamilyLabel(supplier.famille)}
+                                size="small"
+                                sx={{ bgcolor: getFamilyColor(supplier.famille), color: "white", fontSize: "0.7rem", height: 22 }}
+                              />
+                            )}
+                            <Chip
+                              label={supplier.is_active ? "Actif" : "Inactif"}
+                              size="small"
+                              sx={{ bgcolor: supplier.is_active ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)", color: supplier.is_active ? "#10b981" : "#ef4444", fontSize: "0.7rem", height: 22 }}
+                            />
                           </Box>
-                        </TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.contact_name || "-"}</TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.email || "-"}</TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.phone || "-"}</TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.city || "-"}</TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.country || "-"}</TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
-                          {supplier.famille ? (
-                            <Chip 
-                              label={getFamilyLabel(supplier.famille)} 
-                              size="small"
-                              sx={{ 
-                                bgcolor: getFamilyColor(supplier.famille),
-                                color: "white",
-                                fontWeight: 500,
-                                fontSize: "0.7rem"
-                              }}
-                            />
-                          ) : "-"}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
-                            <Switch 
-                              checked={supplier.is_active} 
-                              onChange={() => handleToggleStatus(supplier)}
-                              size="small"
-                              sx={{ 
-                                "& .MuiSwitch-switchBase.Mui-checked": { color: "#10b981" }, 
-                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { bgcolor: "#10b981" } 
-                              }}
-                            />
-                            <Typography variant="caption" sx={{ color: supplier.is_active ? "#10b981" : "#ef4444", fontWeight: 600, fontSize: "0.75rem", minWidth: 55 }}>
-                              {supplier.is_active ? "Actif" : "Inactif"}
+                        </Box>
+                      </Box>
+                      <IconButton onClick={(e) => handleMenuOpen(e, supplier)} sx={{ color: "#64748b" }}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </Box>
+
+                    {/* Contenu */}
+                    <Box sx={{ flex: 1, p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+                      {/* CONTACT */}
+                      <Box>
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, mb: 1 }}>
+                          <Avatar sx={{ width: 32, height: 32, bgcolor: "rgba(59,130,246,0.15)" }}>
+                            <PersonIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
+                          </Avatar>
+                          <Box>
+                            <Typography variant="caption" sx={{ color: "#64748b", display: "block", fontSize: "0.7rem" }}>
+                              Contact
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: "#f1f5f9", fontWeight: 500 }}>
+                              {supplier.contact_name || "-"}
                             </Typography>
                           </Box>
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton size="small" onClick={(e) => handleMenuOpen(e, supplier)} sx={{ color: "#64748b", "&:hover": { color: "#3b82f6" } }}>
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={9} sx={{ border: "none" }}>
-                        <Box sx={{ textAlign: "center", py: 6 }}>
-                          <BusinessIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
-                          <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucun fournisseur trouvé</Typography>
-                          <Typography sx={{ color: "#64748b" }}>
-                            {searchQuery ? "Aucun fournisseur ne correspond à votre recherche." : "Commencez par ajouter un fournisseur."}
+                        </Box>
+                      </Box>
+
+                      {/* EMAIL */}
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, mb: 1 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: "rgba(59,130,246,0.15)" }}>
+                          <EmailIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="caption" sx={{ color: "#64748b", display: "block", fontSize: "0.7rem" }}>
+                            Email
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "#f1f5f9", fontWeight: 500, wordBreak: "break-word" }}>
+                            {supplier.email || "-"}
                           </Typography>
                         </Box>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Card>
+                      </Box>
+
+                      {/* TÉLÉPHONE */}
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, mb: 1 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: "rgba(59,130,246,0.15)" }}>
+                          <PhoneIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="caption" sx={{ color: "#64748b", display: "block", fontSize: "0.7rem" }}>
+                            Téléphone
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "#f1f5f9", fontWeight: 500 }}>
+                            {supplier.phone || "-"}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {/* LOCALISATION */}
+                      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: "rgba(59,130,246,0.15)" }}>
+                          <LocationOnIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="caption" sx={{ color: "#64748b", display: "block", fontSize: "0.7rem" }}>
+                            Localisation
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: "#f1f5f9", fontWeight: 500 }}>
+                            {`${supplier.city || ""} ${supplier.country || ""}`.trim() || "-"}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {/* Note */}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2, pt: 2, borderTop: "1px solid rgba(59,130,246,0.1)" }}>
+                        <StarIcon sx={{ fontSize: 18, color: "#f59e0b" }} />
+                        <Typography variant="body2" sx={{ color: "#94a3b8" }}>
+                          Note: {supplier.note_globale || 3}/5
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Bouton action */}
+                    <Box sx={{ p: 2, borderTop: "1px solid rgba(59,130,246,0.1)" }}>
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        onClick={() => handleOpenAddDialog(supplier)}
+                        sx={{
+                          borderColor: "#3b82f6",
+                          color: "#3b82f6",
+                          textTransform: "none",
+                          borderRadius: 2,
+                          "&:hover": {
+                            borderColor: "#60a5fa",
+                            bgcolor: "rgba(59,130,246,0.08)",
+                          },
+                        }}
+                      >
+                        Voir les détails
+                      </Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3, textAlign: "center", py: 6 }}>
+              <BusinessIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
+              <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucun fournisseur trouvé</Typography>
+              <Typography sx={{ color: "#64748b" }}>
+                {searchQuery ? "Aucun fournisseur ne correspond à votre recherche." : "Commencez par ajouter un fournisseur."}
+              </Typography>
+            </Card>
+          )}
         </Box>
       </Box>
 

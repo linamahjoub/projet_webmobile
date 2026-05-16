@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.db.models import Q, Sum
 from django.contrib.auth import get_user_model
 from datetime import timedelta
+from django.http import HttpResponse  # AJOUTER CET IMPORT
 
 from .models import Order, OrderItem
 from notifications.models import Notification
@@ -17,6 +18,7 @@ from .serializers import (
     OrderCreateSerializer,
     OrderItemSerializer,
 )
+from .pdf_generator import OrderPDFGenerator  # AJOUTER CET IMPORT
 
 
 User = get_user_model()
@@ -463,3 +465,32 @@ class OrderViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    # ========== NOUVELLE METHODE PDF ==========
+    @action(detail=True, methods=['get'])
+    def export_pdf(self, request, pk=None):
+        """Exporter la commande en PDF (même design que bon d'achat)"""
+        order = self.get_object()
+        
+        # Vérifier les permissions
+        if not (request.user == order.customer or self._can_manage_orders(request.user)):
+            return Response(
+                {'error': 'Vous n\'avez pas la permission d\'exporter cette commande'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            # Générer le PDF
+            pdf_generator = OrderPDFGenerator(order)
+            pdf_buffer = pdf_generator.generate()
+            
+            # Créer la réponse HTTP
+            response = HttpResponse(pdf_buffer, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="commande_{order.id}.pdf"'
+            return response
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Erreur lors de la génération du PDF: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

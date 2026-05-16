@@ -261,7 +261,11 @@ const approManagerMenus = [
     id: 'fournisseurs',
     label: 'fournisseurs',
     icon: <PeopleIcon />,
-    path: '/appro/fournisseurs',  // ← Changement ici : utiliser la route spécifique
+    path: '/appro/fournisseurs',
+    children: [
+      { id: 'fournisseurs-list', label: 'fournisseurs-list', icon: <ListIcon />, path: '/appro/fournisseurs' },
+      { id: 'bon-achat', label: 'bon-achat', icon: <ReceiptIcon />, path: '/appro/bon-achat' },
+    ],
   },
   {
     id: 'commandes_appro',
@@ -385,6 +389,7 @@ const adminMenus = [
     children: [
       { id: 'fournisseur-list', label: 'fournisseur-list', icon: <ListIcon />, path: '/fournisseur' },
       { id: 'fournisseur-new', label: 'fournisseur-new', icon: <AddBoxIcon />, path: '/fournisseur/new' },
+      { id: 'bon-achat-list', label: 'bon-achat', icon: <ReceiptIcon />, path: '/appro/bon-achat' },
     ],
   },
   // 11. Entrepôts
@@ -469,18 +474,117 @@ const adminMenus = [
     return m;
   });
 
+  // Fonction pour filtrer les menus en fonction des authorized_pages
+  const filterMenusByAuthorizedPages = (menus, authorizedPages) => {
+    if (!Array.isArray(authorizedPages) || authorizedPages.length === 0) {
+      return menus;
+    }
+
+    const slugToMenuMap = {
+      'dashboard': 'dashboard',
+      'alertes': 'alertes',
+      'notifications': 'notifications',
+      'stock': 'stock',
+      'stockMovements': 'stockMovements',
+      'orders': 'orders',
+      'fournisseurs': 'fournisseurs',
+      'categories': 'categories',
+      'entrepots': 'entrepots',
+      'facturation': 'facturation',
+      'modules': 'modules',
+      'history': 'history',
+      'profile': 'profile',
+      'settings': 'settings',
+      'admin': 'admin_panel',
+      'employees': 'employees',
+      // Enfants des menus (mapping vers leurs pages parents)
+      'fournisseurs-list': 'fournisseurs',
+      'bon-achat': 'orders',
+      'stock-list': 'stock',
+      'stock-new': 'stock',
+      'movements-list': 'stockMovements',
+      'movements-new': 'stockMovements',
+      'orders-list': 'orders',
+      'orders-new': 'orders',
+      'categories-list': 'categories',
+      'categories-new': 'categories',
+      'fournisseur-list': 'fournisseurs',
+      'fournisseur-new': 'fournisseurs',
+      'bon-achat-list': 'orders',
+      'entrepot-list': 'entrepots',
+      'entrepot-new': 'entrepots',
+      'facturation-list': 'facturation',
+      'facturation-new': 'facturation',
+      'employees-requests': 'employees',
+      'employees-new': 'employees',
+      'appro-livraisons-list': 'stockMovements',
+    };
+
+    return menus.filter(menu => {
+      // Les éléments sans pages associées (logout) sont toujours affichés
+      if (!menu.path && !menu.children && menu.action) {
+        return true;
+      }
+
+      const menuPageId = slugToMenuMap[menu.id];
+      
+      // Si le menu est dans authorizedPages, l'afficher
+      if (authorizedPages.includes(menu.id) || (menuPageId && authorizedPages.includes(menuPageId))) {
+        return true;
+      }
+
+      // Montrer le menu si au moins un enfant est autorisé
+      if (menu.children) {
+        const hasAuthorizedChildren = menu.children.some(child => {
+          const childPageId = slugToMenuMap[child.id];
+          return authorizedPages.includes(child.id) || (childPageId && authorizedPages.includes(childPageId));
+        });
+        return hasAuthorizedChildren;
+      }
+
+      return false;
+    }).map(menu => {
+      // Filtrer aussi les enfants
+      if (menu.children) {
+        return {
+          ...menu,
+          children: menu.children.filter(child => {
+            const childPageId = slugToMenuMap[child.id];
+            return authorizedPages.includes(child.id) || (childPageId && authorizedPages.includes(childPageId));
+          })
+        };
+      }
+      return menu;
+    });
+  };
+
   // Sélectionner les menus selon le rôle
   const menuGroups = useMemo(() => {
-    if (isAdmin) return adminMenus;
-    if (isStockManager) return stockManagerMenus;
-    if (isApproManager) return approManagerMenus;
-    return otherMenus;
-  }, [isAdmin, isStockManager, isApproManager]);
+    let baseMenus;
+    if (isApproManager) {
+      baseMenus = approManagerMenus;
+    } else if (isAdmin) {
+      baseMenus = adminMenus;
+    } else if (isStockManager) {
+      baseMenus = stockManagerMenus;
+    } else {
+      baseMenus = otherMenus;
+    }
+
+    // Appliquer le filtrage pour les rôles avec authorized_pages
+    const authorizedPages = Array.isArray(user?.authorized_pages) ? user.authorized_pages : [];
+    if ((isStockManager || isApproManager) && authorizedPages.length > 0) {
+      return filterMenusByAuthorizedPages(baseMenus, authorizedPages);
+    }
+
+    return baseMenus;
+  }, [isAdmin, isStockManager, isApproManager, user?.authorized_pages]);
 
   useEffect(() => {
     console.log('=== DEBUG SIDEBAR ===');
     console.log('User:', user);
     console.log('user?.role:', user?.role);
+    console.log('user?.authorized_pages:', user?.authorized_pages);
     console.log('isStockManager:', isStockManager);
     console.log('isApproManager:', isApproManager);
     console.log('isAdmin:', isAdmin);
@@ -516,7 +620,13 @@ const adminMenus = [
   };
 
   // Bottom nav items for mobile
-  const bottomNavItems = isStockManager ? [
+  const bottomNavItems = isApproManager ? [
+    { label: 'dashboard', icon: <DashboardIcon />, path: '/appro-dashboard' },
+    { label: 'fournisseurs', icon: <PeopleIcon />, path: '/appro/fournisseurs' },
+    { label: 'alertes', icon: <FlashOnIcon />, path: '/alerts' },
+    { label: 'notifications', icon: <NotificationsIcon />, path: '/notifications', badge: user?.unread_notifications || 0 },
+    { label: 'plus', icon: <MenuIcon />, openDrawer: true },
+  ] : isStockManager ? [
     { label: 'dashboard', icon: <DashboardIcon />, path: '/stock-dashboard' },
     { label: 'stock', icon: <InventoryIcon />, path: '/stock' },
     { label: 'alertes', icon: <FlashOnIcon />, path: '/alerts' },

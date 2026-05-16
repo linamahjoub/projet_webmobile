@@ -170,8 +170,8 @@ class CustomUser(AbstractUser):
         return role_modules.get(self.role, [])
     
     def save(self, *args, **kwargs):
-        # Auto-populate authorized_pages based on role
-        if not self.authorized_pages:  # Only if not already set
+        # Auto-populate authorized_pages based on role - SEULEMENT si c'est la création (pas de pk)
+        if not self.pk and not self.authorized_pages:  # Only on creation if not already set
             pages_by_role = {
                 'super_admin': ['dashboard', 'alertes', 'notifications', 'stock', 'stock-movements', 'orders', 'categories', 'fournisseurs', 'entrepots', 'facturation', 'matiere-premiere', 'ordre-production', 'produit-fini', 'modules', 'admin', 'Employes', 'history', 'profile', 'settings', 'deconnexion'],
                 'responsable_stock': ['dashboard', 'alertes', 'notifications', 'stock', 'categories', 'stock-movements', 'fournisseurs', 'entrepots', 'facturation', 'history', 'profile', 'settings', 'deconnexion'],
@@ -184,6 +184,9 @@ class CustomUser(AbstractUser):
                 'employe': ['dashboard', 'notifications', 'profile', 'settings', 'deconnexion'],
             }
             self.authorized_pages = pages_by_role.get(self.role, ['dashboard', 'notifications', 'profile', 'settings', 'deconnexion'])
+            print(f"[MODEL SAVE] Creating new user with role {self.role}, auto-populated pages: {self.authorized_pages}")
+        elif self.pk:
+            print(f"[MODEL SAVE] Updating existing user {self.id}, keeping authorized_pages: {self.authorized_pages}")
 
         # Le premier utilisateur créé devient automatiquement superuser
         if not CustomUser.objects.exists():

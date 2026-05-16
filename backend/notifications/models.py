@@ -160,7 +160,7 @@ L'équipe SmartNotify
         alert_name = self.alert.name if self.alert else (self.title or "Automatique")
 
         text = (
-            f"🔔 *{title_content}*\n\n"
+            f" *{title_content}*\n\n"
             f"{body_content}\n\n"
             f"*Détails de l'alerte :*\n"
             f"━━━━━━━━━━━━━━━\n"

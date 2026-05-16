@@ -927,14 +927,28 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
                         'allowed_roles': MODULE_ROLES.get(user_module, [])
                     }, status=status.HTTP_403_FORBIDDEN)
         
+        # Pour PATCH, on doit utiliser partial=True
         partial = kwargs.pop('partial', False)
+        if request.method == 'PATCH':
+            partial = True
+        
         instance = self.get_object()
         serializer = self.get_serializer(
             instance,
             data=request.data,
             partial=partial
         )
-        serializer.is_valid(raise_exception=True)
+        
+        print(f"[UPDATE VIEW] Method: {request.method}")
+        print(f"[UPDATE VIEW] Partial: {partial}")
+        print(f"[UPDATE VIEW] Request data: {request.data}")
+        print(f"[UPDATE VIEW] Instance: {instance.id} - {instance.email}")
+        print(f"[UPDATE VIEW] Is valid: {serializer.is_valid()}")
+        
+        if not serializer.is_valid():
+            print(f"[UPDATE VIEW] Serializer errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
         self.perform_update(serializer)
         
         return Response({

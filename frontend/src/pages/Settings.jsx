@@ -18,6 +18,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const { user, updateProfile } = useAuth();
   const isAdmin = user?.is_superuser || user?.is_staff || user?.is_primary_admin;
+  const canManageUsers = isAdmin || user?.role === 'responsable_appro';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('/settings/profile');
@@ -54,11 +55,38 @@ const Settings = () => {
   const [selectedUser, setSelectedUser] = useState('');
   const usersList = Array.isArray(users) ? users : [];
   
-  // Liste des rôles disponibles
+  // Liste complète des pages - DOIT correspondre aux pages_by_role du backend
+  const availablePages = [
+    { slug: 'dashboard', label: 'Tableau de bord' },
+    { slug: 'alertes', label: 'Alertes' },
+    { slug: 'notifications', label: 'Notifications' },
+    { slug: 'stock', label: 'Stock' },
+    { slug: 'stock-movements', label: 'Mouvements de stock' },
+    { slug: 'orders', label: 'Commandes' },
+    { slug: 'categories', label: 'Catégories' },
+    { slug: 'fournisseurs', label: 'Fournisseurs' },
+    { slug: 'entrepots', label: 'Entrepôts' },
+    { slug: 'facturation', label: 'Facturation' },
+    { slug: 'modules', label: 'ERP Modules' },
+    { slug: 'admin', label: 'Admin Panel' },
+    { slug: 'Employes', label: 'Employés' },
+    { slug: 'history', label: 'Historique' },
+    { slug: 'profile', label: 'Profil' },
+    { slug: 'settings', label: 'Paramètres' },
+    { slug: 'deconnexion', label: 'Déconnexion' }
+  ];
+  
+  // Liste des rôles disponibles - DOIT correspondre aux ROLE_CHOICES du backend
   const availableRoles = [
-    { value: 'user', label: 'Utilisateur', is_staff: false, is_superuser: false },
-    { value: 'manager', label: 'Manager', is_staff: true, is_superuser: false },
-    { value: 'admin', label: 'Administrateur', is_staff: true, is_superuser: false }
+    { value: 'super_admin', label: 'Super Administrateur', is_staff: true, is_superuser: true },
+    { value: 'responsable_stock', label: 'Responsable Stock', is_staff: true, is_superuser: false },
+    { value: 'responsable_appro', label: 'Responsable Approvisionnement', is_staff: true, is_superuser: false },
+    { value: 'responsable_production', label: 'Responsable Production', is_staff: true, is_superuser: false },
+    { value: 'responsable_facturation', label: 'Responsable Facturation', is_staff: true, is_superuser: false },
+    { value: 'responsable_commandes', label: 'Responsable Commandes', is_staff: true, is_superuser: false },
+    { value: 'agent_stock', label: 'Agent Stock', is_staff: false, is_superuser: false },
+    { value: 'agent_production', label: 'Agent Production', is_staff: false, is_superuser: false },
+    { value: 'employe', label: 'Employé', is_staff: false, is_superuser: false }
   ];
   
   // Navigation items pour la sidebar
@@ -69,7 +97,7 @@ const Settings = () => {
       icon: <BusinessIcon sx={{ fontSize: 24 }} />,
     },
   
-    ...(isAdmin ? [
+    ...(canManageUsers ? [
       {
         label: t('users'),
         href: '/settings/preferences',
@@ -86,7 +114,7 @@ const Settings = () => {
   // Charger les utilisateurs
   useEffect(() => {
     if (activeSection === '/settings/preferences') {
-      if (!isAdmin) {
+      if (!canManageUsers) {
         setErrorMessage('Accès réservé aux administrateurs');
         setSuccessMessage('');
         setActiveSection('/settings/profile');
@@ -94,7 +122,7 @@ const Settings = () => {
       }
       fetchUsers();
     }
-  }, [activeSection, isAdmin]);
+  }, [activeSection, canManageUsers]);
   
   useEffect(() => {
     const savedCurrency = localStorage.getItem('settings_currency') || '';
@@ -176,7 +204,8 @@ const Settings = () => {
       const updateData = {
         role: employeeData.role,
         is_staff: selectedRole?.is_staff || false,
-        is_superuser: selectedRole?.is_superuser || false
+        is_superuser: selectedRole?.is_superuser || false,
+        authorized_pages: employeeData.authorized_pages || []
       };
       
       console.log('Updating user role:', updateData);
@@ -191,15 +220,49 @@ const Settings = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Erreur update rôle:', errorData);
-        setErrorMessage('Erreur lors de la mise à jour du rôle: ' + JSON.stringify(errorData));
+        console.error('Erreur update rôle - Status:', response.status);
+        console.error('Erreur update rôle - Data:', errorData);
+        
+        // Formater le message d'erreur en fonction de la structure
+        let errorMsg = 'Erreur lors de la mise à jour du rôle: ';
+        if (typeof errorData === 'object') {
+          // Si c'est un objet avec des erreurs par champ
+          const errorMessages = Object.entries(errorData)
+            .map(([key, value]) => {
+              if (Array.isArray(value)) {
+                return `${key}: ${value.join(', ')}`;
+              }
+              return `${key}: ${value}`;
+            })
+            .join(' | ');
+          errorMsg += errorMessages;
+        } else {
+          errorMsg += JSON.stringify(errorData);
+        }
+        
+        console.error('Message d\'erreur complet:', errorMsg);
+        setErrorMessage(errorMsg);
         return;
       }
       
       const result = await response.json();
       console.log('User role updated:', result);
+      console.log('Updated user authorized_pages:', result.user?.authorized_pages);
       setSuccessMessage('Rôle mis à jour avec succès');
+      
+      // Recharger les utilisateurs et mettre à jour l'utilisateur sélectionné
       fetchUsers();
+      
+      // Mettre à jour les données locales avec les données retournées par l'API
+      if (result.user) {
+        setEmployeeData({
+          ...employeeData,
+          role: result.user.role || 'employe',
+          authorized_pages: result.user.authorized_pages && Array.isArray(result.user.authorized_pages) 
+            ? result.user.authorized_pages 
+            : []
+        });
+      }
     } catch (error) {
       console.error('Erreur réseau:', error);
       setErrorMessage('Erreur réseau lors de la mise à jour: ' + error.message);
@@ -651,7 +714,7 @@ const Settings = () => {
             )}
             
             {/* Section Utilisateur - Gestion des employés */}
-            {activeSection === '/settings/preferences' && isAdmin && (
+            {activeSection === '/settings/preferences' && canManageUsers && (
               <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                   <PersonAddIcon sx={{ color: '#3b82f6', fontSize: 32 }} />
@@ -717,10 +780,12 @@ const Settings = () => {
           // Charger les pages autorisées de l'utilisateur sélectionné
           const user = usersList.find(u => u.id === e.target.value);
           if (user) {
+            console.log('User selected:', user);
+            console.log('Authorized pages:', user.authorized_pages);
             setEmployeeData({
               ...employeeData,
-              role: user.role || 'user',
-              authorized_pages: user.authorized_pages || []
+              role: user.role || 'employe',
+              authorized_pages: user.authorized_pages && Array.isArray(user.authorized_pages) ? user.authorized_pages : []
             });
           }
         }}
@@ -774,29 +839,30 @@ const Settings = () => {
         Pages autorisées
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-        {[
-          'Stock', 'Commandes', 'Catégories', 'Fournisseur', 
-          'Produit fini', 'ERP Modules', 'Historique', 'Entrepôt', 
-          'Facturation', 'Matière Première', 'Ordre de production', 
-          'Admin Panel', 'Employés', 'Paramètre'
-        ].map((page) => (
-          <Box key={page} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {availablePages.map((page) => (
+          <Box key={page.slug} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <input
               type="checkbox"
-              id={`page-${page}`}
-              checked={employeeData.authorized_pages?.includes(page) || false}
+              id={`page-${page.slug}`}
+              checked={employeeData.authorized_pages?.includes(page.slug) || false}
               onChange={(e) => {
+                const currentPages = Array.isArray(employeeData.authorized_pages) 
+                  ? employeeData.authorized_pages 
+                  : [];
+                
+                let updatedPages;
                 if (e.target.checked) {
-                  setEmployeeData({
-                    ...employeeData,
-                    authorized_pages: [...(employeeData.authorized_pages || []), page]
-                  });
+                  updatedPages = [...currentPages, page.slug];
                 } else {
-                  setEmployeeData({
-                    ...employeeData,
-                    authorized_pages: employeeData.authorized_pages?.filter(p => p !== page) || []
-                  });
+                  updatedPages = currentPages.filter(p => p !== page.slug);
                 }
+                
+                console.log(`[CHECKBOX] Page ${page.slug} - Checked: ${e.target.checked} - Updated pages:`, updatedPages);
+                
+                setEmployeeData({
+                  ...employeeData,
+                  authorized_pages: updatedPages
+                });
               }}
               style={{
                 width: '18px',
@@ -809,7 +875,7 @@ const Settings = () => {
               }}
             />
             <label 
-              htmlFor={`page-${page}`} 
+              htmlFor={`page-${page.slug}`} 
               style={{ 
                 color: '#e2e8f0', 
                 cursor: 'pointer', 
@@ -817,7 +883,7 @@ const Settings = () => {
                 userSelect: 'none'
               }}
             >
-              {page}
+              {page.label}
             </label>
           </Box>
         ))}
@@ -850,7 +916,7 @@ const Settings = () => {
               </Paper>
             )}
             
-            {activeSection === '/settings/preferences' && !isAdmin && (
+            {activeSection === '/settings/preferences' && !canManageUsers && (
               <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Typography variant="h4" sx={{ color: 'white', mb: 2 }}>
                   Accès refusé

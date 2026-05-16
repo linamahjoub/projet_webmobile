@@ -60,6 +60,7 @@ import {
   Telegram as TelegramIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../components/SharedSidebar";
+import { authFetch } from "../utils/authFetch";
 
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
 const C = {
@@ -367,15 +368,15 @@ const Notifications = () => {
 
   const fetchAlerts = async () => {
     try {
-      const isAdmin = user?.is_superuser || user?.is_staff;
+      const isAdmin = user?.is_superuser;
       
       if (isAdmin) {
         const myAlertsUrl = "http://localhost:8000/api/alerts/my_alerts/";
         const employeeAlertsUrl = "http://localhost:8000/api/alerts/employee_alerts/";
 
         const [myAlertsRes, employeeAlertsRes] = await Promise.all([
-          fetch(myAlertsUrl, { headers: authHeaders() }),
-          fetch(employeeAlertsUrl, { headers: authHeaders() })
+          authFetch(myAlertsUrl),
+          authFetch(employeeAlertsUrl)
         ]);
 
         if (!myAlertsRes.ok || !employeeAlertsRes.ok) {
@@ -394,7 +395,7 @@ const Notifications = () => {
 
       } else {
         const url = "http://localhost:8000/api/alerts/";
-        const res = await fetch(url, { headers: authHeaders() });
+        const res = await authFetch(url);
         if (!res.ok) throw new Error('Failed to fetch alerts');
         const data = await res.json();
         // Gérer la pagination DRF : data.results contient les alertes

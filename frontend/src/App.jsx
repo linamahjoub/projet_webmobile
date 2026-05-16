@@ -6,6 +6,7 @@ import { ActivityProvider } from './context/ActivityContext';
 import { LanguageProvider } from './context/LanguageContext';
 import './i18n';
 import PrivateRoute from './components/PrivateRoute';
+import RequirePageAccess from './components/RequirePageAccess';
 import VerificationPending from './pages/auth/VerificationPending';
 import LoginOtpVerification from './pages/auth/LoginOtpVerification';
 import Login from './pages/auth/Login';
@@ -50,6 +51,7 @@ import EmployeesNew from './pages/EmployeesNew';
 // Pages pour le responsable approvisionnement
 import ApproFournisseurs from './pages/appro/ApproFournisseurs';
 import FournisseurTable from "./pages/appro/FournisseurTable";
+import BonAchat from "./pages/appro/BonAchat";
 import ApproOrders from './pages/appro/ApproOrders';
 import ApproAlertes from './pages/appro/ApproAlertes';
 
@@ -416,39 +418,8 @@ const InnerRoutes = () => {
             <Facturation />
           </PrivateRoute>
         } />
-        {/* Routes pour Matière Première */}
-        <Route path="/matiere-premiere" element={
-          <PrivateRoute>
-            <MatierePremiere />
-          </PrivateRoute>
-        } />
-        <Route path="/matiere-premiere/new" element={
-          <PrivateRoute>
-            <MatierePremiere />
-          </PrivateRoute>
-        } />
-        {/* Routes pour Ordre de Production */}
-        <Route path="/ordre-production" element={
-          <PrivateRoute>
-            <OrdreProduction />
-          </PrivateRoute>
-        } />
-        <Route path="/ordre-production/new" element={
-          <PrivateRoute>
-            <OrdreProduction />
-          </PrivateRoute>
-        } />
-        {/* Routes pour Produit Fini */}
-        <Route path="/produit-fini" element={
-          <PrivateRoute>
-            <ProduitFini />
-          </PrivateRoute>
-        } />
-        <Route path="/produit-fini/new" element={
-          <PrivateRoute>
-            <ProduitFini />
-          </PrivateRoute>
-        } />
+      
+       
         {/* Route pour créer une Nouvelle alerte */}
         <Route path="/new-alert" element={
           <PrivateRoute>
@@ -516,18 +487,55 @@ const InnerRoutes = () => {
             <History />
           </PrivateRoute>
         } />
+        <Route path="/appro/bon-achat" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <BonAchat />
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+<Route path="/appro/bon-achat/new" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <BonAchat />
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+
         {/* Routes pour Responsable Approvisionnement */}
 <Route path="/appro/fournisseurs" element={
   <PrivateRoute>
     <RequireApproManager>
-      <ApproFournisseurs />
+      <RequirePageAccess pageSlug="fournisseurs">
+        <ApproFournisseurs />
+      </RequirePageAccess>
     </RequireApproManager>
   </PrivateRoute>
 } />
 <Route path="/appro/fournisseurs/:familyKey" element={
   <PrivateRoute>
     <RequireApproManager>
-      <FournisseurTable />
+      <RequirePageAccess pageSlug="fournisseurs">
+        <FournisseurTable />
+      </RequirePageAccess>
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+<Route path="/appro/bon-achat" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <RequirePageAccess pageSlug="orders">
+        <BonAchat />
+      </RequirePageAccess>
+    </RequireApproManager>
+  </PrivateRoute>
+} />
+<Route path="/appro/bon-achat/new" element={
+  <PrivateRoute>
+    <RequireApproManager>
+      <RequirePageAccess pageSlug="orders">
+        <BonAchat />
+      </RequirePageAccess>
     </RequireApproManager>
   </PrivateRoute>
 } />
